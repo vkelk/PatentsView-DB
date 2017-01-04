@@ -5,3 +5,4 @@ See these [instructions in the wiki](https://github.com/CSSIP-AIR/PatentsView-DB
 
 See these [instructions in the wiki](https://github.com/CSSIP-AIR/PatentsView-DB/wiki/Instructions-for-Running-Classification-Files-Parser-and-Upload) for running the classification file parsers.
 
+test-change[to be deleted]
