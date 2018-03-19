@@ -1120,4 +1120,6 @@ def parse_patents(fd,fd2):
 	for k,v in subclassdata.items():
 		subclassfile.writerow(v)
 		
-parse_patents("D:/PV_Patches/MissingApplicationDate/DataIn", "D:/PV_Patches/MissingApplicationDate/DataOut")
+if __name__ == '__main__':
+	parse_patents("D:/PV_Patches/MissingApplicationDate/DataIn", "D:/PV_Patches/MissingApplicationDate/DataOut")
+	
