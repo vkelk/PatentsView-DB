@@ -13,7 +13,7 @@ import copy
 import sys
 
 
-def parse_patents(fd, fd2):
+def parse_patents(xml_dir, csv_dir):
     _char = re.compile(r'&(\w+?);')
 
     # Generate some extra HTML entities
@@ -46,9 +46,9 @@ def parse_patents(fd, fd2):
     def id_generator(size=25, chars=string.ascii_lowercase + string.digits):
         return ''.join(random.choice(chars) for _ in range(size))
 
-    fd += '/'
-    fd2 += '/'
-    diri = os.listdir(fd)
+    xml_dir += '/'
+    csv_dir += '/'
+    diri = os.listdir(xml_dir)
     diri = [d for d in diri if re.search('XML', d, re.I)]
     print "Just to check the list of XML files is", diri
 
@@ -56,164 +56,164 @@ def parse_patents(fd, fd2):
     h = HTMLParser.HTMLParser()
 
     # Remove all files from output dir before writing
-    outdir = os.listdir(fd2)
+    outdir = os.listdir(csv_dir)
 
     for oo in outdir:
-        os.remove(os.path.join(fd2, oo))
+        os.remove(os.path.join(csv_dir, oo))
     # Rewrite files and write headers to them
-    appfile = open(os.path.join(fd2, 'application.csv'), 'wb')
+    appfile = open(os.path.join(csv_dir, 'application.csv'), 'wb')
     appfile.write(codecs.BOM_UTF8)
     app = csv.writer(appfile, delimiter='\t')
     app.writerow(['app_id', 'id', 'patent_id', 'type', 'number', 'country', 'date',
                   'id_transformed', 'number_transformed', 'series_code_transformed_from_type'])
 
-    claimsfile = open(os.path.join(fd2, 'claim.csv'), 'wb')
+    claimsfile = open(os.path.join(csv_dir, 'claim.csv'), 'wb')
     claimsfile.write(codecs.BOM_UTF8)
     clms = csv.writer(claimsfile, delimiter='\t')
     clms.writerow(['app_id', 'uuid', 'patent_id', 'text',
                    'dependent', 'sequence', 'exemplary'])
 
-    rawlocfile = open(os.path.join(fd2, 'rawlocation.csv'), 'wb')
+    rawlocfile = open(os.path.join(csv_dir, 'rawlocation.csv'), 'wb')
     rawlocfile.write(codecs.BOM_UTF8)
     rawloc = csv.writer(rawlocfile, delimiter='\t')
     rawloc.writerow(['id', 'location_id', 'city', 'state', 'country', 'country_transformed', 'location_id_transformed'])
 
-    rawinvfile = open(os.path.join(fd2, 'rawinventor.csv'), 'wb')
+    rawinvfile = open(os.path.join(csv_dir, 'rawinventor.csv'), 'wb')
     rawinvfile.write(codecs.BOM_UTF8)
     rawinv = csv.writer(rawinvfile, delimiter='\t')
     # also no inventor id in UC Berkeley
     rawinv.writerow(['app_id' 'uuid', 'patent_id', 'inventor_id', 'rawlocation_id',
                      'name_first', 'name_last', 'sequence', 'rule_47'])
 
-    rawassgfile = open(os.path.join(fd2, 'rawassignee.csv'), 'wb')
+    rawassgfile = open(os.path.join(csv_dir, 'rawassignee.csv'), 'wb')
     rawassgfile.write(codecs.BOM_UTF8)
     rawassg = csv.writer(rawassgfile, delimiter='\t')
     # assignee_id not in UC Berkeley Parser
     rawassg.writerow(['app_id', 'uuid', 'patent_id', 'assignee_id', 'rawlocation_id',
                       'type', 'name_first', 'name_last', 'organization', 'sequence'])
 
-    ipcrfile = open(os.path.join(fd2, 'ipcr.csv'), 'wb')
+    ipcrfile = open(os.path.join(csv_dir, 'ipcr.csv'), 'wb')
     ipcrfile.write(codecs.BOM_UTF8)
     ipcr = csv.writer(ipcrfile, delimiter='\t')
     ipcr.writerow(['app_id', 'uuid', 'patent_id', 'classification_level', 'section', 'mainclass', 'subclass', 'main_group', 'subgroup', 'symbol_position',
                    'classification_value', 'classification_status', 'classification_data_source', 'action_date', 'ipc_version_indicator', 'sequence'])
 
-    patfile = open(os.path.join(fd2, 'patent.csv'), 'wb')
+    patfile = open(os.path.join(csv_dir, 'patent.csv'), 'wb')
     patfile.write(codecs.BOM_UTF8)
     pat = csv.writer(patfile, delimiter='\t')
     pat.writerow(['app_id', 'id', 'type', 'number', 'country', 'date',
                   'abstract', 'title', 'kind', 'num_claims', 'filename'])
 
-    foreigncitfile = open(os.path.join(fd2, 'foreigncitation.csv'), 'wb')
+    foreigncitfile = open(os.path.join(csv_dir, 'foreigncitation.csv'), 'wb')
     foreigncitfile.write(codecs.BOM_UTF8)
     foreigncit = csv.writer(foreigncitfile, delimiter='\t')
     foreigncit.writerow(['app_id', 'uuid', 'patent_id', 'date',
                          'number', 'country', 'category', 'sequence'])
 
-    uspatentcitfile = open(os.path.join(fd2, 'uspatentcitation.csv'), 'wb')
+    uspatentcitfile = open(os.path.join(csv_dir, 'uspatentcitation.csv'), 'wb')
     uspatentcitfile.write(codecs.BOM_UTF8)
     uspatcit = csv.writer(uspatentcitfile, delimiter='\t')
     uspatcit.writerow(['app_id', 'uuid', 'patent_id', 'citation_id', 'date', 'name',
                        'kind', 'country', 'category', 'sequence', 'classification'])
 
-    usappcitfile = open(os.path.join(fd2, 'usapplicationcitation.csv'), 'wb')
+    usappcitfile = open(os.path.join(csv_dir, 'usapplicationcitation.csv'), 'wb')
     usappcitfile.write(codecs.BOM_UTF8)
     usappcit = csv.writer(usappcitfile, delimiter='\t')
     usappcit.writerow(['app_id', 'uuid', 'patent_id', 'application_id', 'date',
                        'name', 'kind', 'number', 'country', 'category', 'sequence'])
 
-    uspcfile = open(os.path.join(fd2, 'uspc.csv'), 'wb')
+    uspcfile = open(os.path.join(csv_dir, 'uspc.csv'), 'wb')
     uspcfile.write(codecs.BOM_UTF8)
     uspcc = csv.writer(uspcfile, delimiter='\t')
     uspcc.writerow(['app_id', 'uuid', 'patent_id', 'mainclass_id',
                     'subclass_id', 'sequence'])
 
-    otherreffile = open(os.path.join(fd2, 'otherreference.csv'), 'wb')
+    otherreffile = open(os.path.join(csv_dir, 'otherreference.csv'), 'wb')
     otherreffile.write(codecs.BOM_UTF8)
     otherref = csv.writer(otherreffile, delimiter='\t')
     otherref.writerow(['app_id', 'uuid', 'patent_id', 'text', 'sequence'])
 
-    rawlawyerfile = open(os.path.join(fd2, 'rawlawyer.csv'), 'wb')
+    rawlawyerfile = open(os.path.join(csv_dir, 'rawlawyer.csv'), 'wb')
     rawlawyerfile.write(codecs.BOM_UTF8)
     rawlawyer = csv.writer(rawlawyerfile, delimiter='\t')
     # no lawyer id in UC Berkeley parser
     rawlawyer.writerow(['app_id', 'uuid', 'lawyer_id', 'patent_id', 'name_first',
                         'name_last', 'organization', 'country', 'sequence'])
 
-    mainclassfile = open(os.path.join(fd2, 'mainclass.csv'), 'wb')
+    mainclassfile = open(os.path.join(csv_dir, 'mainclass.csv'), 'wb')
     mainclassfile.write(codecs.BOM_UTF8)
     mainclass = csv.writer(mainclassfile, delimiter='\t')
     mainclass.writerow(['id'])
 
-    subclassfile = open(os.path.join(fd2, 'subclass.csv'), 'wb')
+    subclassfile = open(os.path.join(csv_dir, 'subclass.csv'), 'wb')
     subclassfile.write(codecs.BOM_UTF8)
     subclass = csv.writer(subclassfile, delimiter='\t')
     subclass.writerow(['id'])
 
-    examinerfile = open(os.path.join(fd2, 'rawexaminer.csv'), 'wb')
+    examinerfile = open(os.path.join(csv_dir, 'rawexaminer.csv'), 'wb')
     examinerfile.write(codecs.BOM_UTF8)
     exam = csv.writer(examinerfile, delimiter='\t')
     exam.writerow(['app_id', 'id', 'patent_id', 'fname', 'lname', 'role', 'group'])
 
-    forpriorityfile = open(os.path.join(fd2, 'foreign_priority.csv'), 'wb')
+    forpriorityfile = open(os.path.join(csv_dir, 'foreign_priority.csv'), 'wb')
     forpriorityfile.write(codecs.BOM_UTF8)
     forpriority = csv.writer(forpriorityfile, delimiter='\t')
     forpriority.writerow(['app_id', 'uuid', 'patent_id', "sequence",
                           "kind", "app_num", "app_date", "country"])
 
     us_term_of_grantfile = open(os.path.join(
-        fd2, 'us_term_of_grant.csv'), 'wb')
+        csv_dir, 'us_term_of_grant.csv'), 'wb')
     us_term_of_grantfile.write(codecs.BOM_UTF8)
     us_term_of_grant = csv.writer(us_term_of_grantfile, delimiter='\t')
     us_term_of_grant.writerow(['app_id', 'uuid', 'patent_id', 'lapse_of_patent',
                                'disclaimer_date', 'term_disclaimer', 'term_grant', 'term_ext'])
 
-    usreldocfile = open(os.path.join(fd2, 'usreldoc.csv'), 'wb')
+    usreldocfile = open(os.path.join(csv_dir, 'usreldoc.csv'), 'wb')
     usreldocfile.write(codecs.BOM_UTF8)
     usrel = csv.writer(usreldocfile, delimiter='\t')
     usrel.writerow(['app_id', 'uuid', 'patent_id', 'doc_type',  'relkind', 'reldocno',
                     'relcountry', 'reldate',  'parent_status', 'rel_seq', 'kind'])
 
-    draw_desc_textfile = open(os.path.join(fd2, 'draw_desc_text.csv'), 'wb')
+    draw_desc_textfile = open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'wb')
     draw_desc_textfile.write(codecs.BOM_UTF8)
     drawdesc = csv.writer(draw_desc_textfile, delimiter='\t')
     drawdesc.writerow(['app_id', 'uuid', 'patent_id', 'text'])
 
-    brf_sum_textfile = open(os.path.join(fd2, 'brf_sum_text.csv'), 'wb')
+    brf_sum_textfile = open(os.path.join(csv_dir, 'brf_sum_text.csv'), 'wb')
     brf_sum_textfile.write(codecs.BOM_UTF8)
     brf_sum = csv.writer(brf_sum_textfile, delimiter='\t')
     brf_sum.writerow(['app_id', 'uuid', 'patent_id', 'text'])
 
-    rel_app_textfile = open(os.path.join(fd2, 'rel_app_text.csv'), 'wb')
+    rel_app_textfile = open(os.path.join(csv_dir, 'rel_app_text.csv'), 'wb')
     rel_app_textfile.write(codecs.BOM_UTF8)
     rel_app = csv.writer(rel_app_textfile, delimiter='\t')
     rel_app.writerow(['app_id', 'uuid', 'patent_id', 'text'])
 
-    det_desc_textfile = open(os.path.join(fd2, 'detail_desc_text.csv'), 'wb')
+    det_desc_textfile = open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'wb')
     det_desc_textfile.write(codecs.BOM_UTF8)
     det_desc = csv.writer(det_desc_textfile, delimiter='\t')
     det_desc.writerow(['app_id', 'uuid', 'patent_id', "text"])
 
     non_inventor_applicantfile = open(os.path.join(
-        fd2, 'non_inventor_applicant.csv'), 'wb')
+        csv_dir, 'non_inventor_applicant.csv'), 'wb')
     non_inventor_applicantfile.write(codecs.BOM_UTF8)
     noninventorapplicant = csv.writer(
         non_inventor_applicantfile, delimiter='\t')
     noninventorapplicant.writerow(['app_id', 'uuid', 'patent_id', "location_id", "last_name",
                                    "first_name", "org_name", "sequence", "designation", "applicant_type"])
 
-    pct_datafile = open(os.path.join(fd2, 'pct_data.csv'), 'wb')
+    pct_datafile = open(os.path.join(csv_dir, 'pct_data.csv'), 'wb')
     pct_datafile.write(codecs.BOM_UTF8)
     pct_data = csv.writer(pct_datafile, delimiter='\t')
     pct_data.writerow(['app_id', 'uuid', 'patent_id', 'rel_id', 'date',
                        '371_date', 'country', 'kind', "doc_type", "102_date"])
 
-    botanicfile = open(os.path.join(fd2, 'botanic.csv'), 'wb')
+    botanicfile = open(os.path.join(csv_dir, 'botanic.csv'), 'wb')
     botanicfile.write(codecs.BOM_UTF8)
     botanic_info = csv.writer(botanicfile, delimiter='\t')
     botanic_info.writerow(['application_id', 'uuid', 'patent_id', 'app_id', 'latin_name', "variety"])
 
-    figurefile = open(os.path.join(fd2, 'figures.csv'), 'wb')
+    figurefile = open(os.path.join(csv_dir, 'figures.csv'), 'wb')
     figurefile.write(codecs.BOM_UTF8)
     figure_info = csv.writer(figurefile, delimiter='\t')
     figure_info.writerow(['app_id', 'uuid', 'patent_id', 'num_figs', "num_sheets"])
@@ -262,7 +262,7 @@ def parse_patents(fd, fd2):
     #diri = [d for d in diri if d.startswith("ipg" + str(year))]
     for d in diri:
         print d
-        infile = open(fd+d, 'rb').read().decode('utf-8',
+        infile = open(xml_dir+d, 'rb').read().decode('utf-8',
                                                 'ignore').replace('&angst', '&aring')
         infile = infile.encode('utf-8', 'ignore')
         infile = _char.sub(_char_unescape, infile)
@@ -1395,92 +1395,92 @@ def parse_patents(fd, fd2):
             patentdata[app_id] = [patent_id, apptype, docno, 'US', issdate, abst, title, patkind, numclaims, d]
 
             patfile = csv.writer(
-                open(os.path.join(fd2, 'patent.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'patent.csv'), 'ab'), delimiter='\t')
             for k, v in patentdata.items():
                 patfile.writerow([k]+v)
 
             appfile = csv.writer(
-                open(os.path.join(fd2, 'application.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'application.csv'), 'ab'), delimiter='\t')
             for k, v in application.items():
                 appfile.writerow([k]+v)
 
             claimsfile = csv.writer(
-                open(os.path.join(fd2, 'claim.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'claim.csv'), 'ab'), delimiter='\t')
             for k, v in claims.items():
                 claimsfile.writerow([k]+v)
 
             rawinvfile = csv.writer(
-                open(os.path.join(fd2, 'rawinventor.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'rawinventor.csv'), 'ab'), delimiter='\t')
             for k, v in rawinventor.items():
                 rawinvfile.writerow([k] + v)
 
             rawassgfile = csv.writer(
-                open(os.path.join(fd2, 'rawassignee.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'rawassignee.csv'), 'ab'), delimiter='\t')
             for k, v in rawassignee.items():
                 rawassgfile.writerow([k]+v)
 
             ipcrfile = csv.writer(
-                open(os.path.join(fd2, 'ipcr.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'ipcr.csv'), 'ab'), delimiter='\t')
             for k, v in ipcr.items():
                 ipcrfile.writerow([k]+v)
 
             uspcfile = csv.writer(
-                open(os.path.join(fd2, 'uspc.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'uspc.csv'), 'ab'), delimiter='\t')
             for k, v in uspc.items():
                 uspcfile.writerow([k]+v)
 
             uspatentcitfile = csv.writer(
-                open(os.path.join(fd2, 'uspatentcitation.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'uspatentcitation.csv'), 'ab'), delimiter='\t')
             for k, v in uspatentcitation.items():
                 uspatentcitfile.writerow([k]+v)
 
             usappcitfile = csv.writer(
-                open(os.path.join(fd2, 'usapplicationcitation.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'usapplicationcitation.csv'), 'ab'), delimiter='\t')
             for k, v in usappcitation.items():
                 usappcitfile.writerow([k]+v)
 
             foreigncitfile = csv.writer(
-                open(os.path.join(fd2, 'foreigncitation.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'foreigncitation.csv'), 'ab'), delimiter='\t')
             for k, v in foreigncitation.items():
                 foreigncitfile.writerow([k]+v)
 
             otherreffile = csv.writer(
-                open(os.path.join(fd2, 'otherreference.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'otherreference.csv'), 'ab'), delimiter='\t')
             for k, v in otherreference.items():
                 otherreffile.writerow([k]+v)
 
             rawlawyerfile = csv.writer(
-                open(os.path.join(fd2, 'rawlawyer.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'rawlawyer.csv'), 'ab'), delimiter='\t')
             for k, v in rawlawyer.items():
                 rawlawyerfile.writerow([k]+v)
 
             examinerfile = csv.writer(
-                open(os.path.join(fd2, 'rawexaminer.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'rawexaminer.csv'), 'ab'), delimiter='\t')
             for k, v in examiner.items():
                 examinerfile.writerow([k]+v)
 
             for_priorityfile = csv.writer(
-                open(os.path.join(fd2, 'foreign_priority.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'foreign_priority.csv'), 'ab'), delimiter='\t')
             for k, v in for_priority.items():
                 for_priorityfile.writerow([k]+v)
 
             usreldocfile = csv.writer(
-                open(os.path.join(fd2, 'usreldoc.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'usreldoc.csv'), 'ab'), delimiter='\t')
             for k, v in usreldoc.items():
                 usreldocfile.writerow([k]+v)
 
             us_term_of_grantfile = csv.writer(
-                open(os.path.join(fd2, 'us_term_of_grant.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'us_term_of_grant.csv'), 'ab'), delimiter='\t')
             for k, v in us_term_of_grant.items():
                 us_term_of_grantfile.writerow([k]+v)
 
             non_inventor_applicantfile = csv.writer(
-                open(os.path.join(fd2, 'non_inventor_applicant.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'non_inventor_applicant.csv'), 'ab'), delimiter='\t')
             for k, v in non_inventor_applicant.items():
                 non_inventor_applicantfile.writerow([k]+v)
 
             draw_desc_textfile = csv.writer(
-                open(os.path.join(fd2, 'draw_desc_text.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'ab'), delimiter='\t')
             for k, v in draw_desc_text.items():
                 try:
                     draw_desc_textfile.writerow([k]+v)
@@ -1498,12 +1498,12 @@ def parse_patents(fd, fd2):
                     draw_desc_textfile.writerow([k]+value)
 
             brf_sum_textfile = csv.writer(
-                open(os.path.join(fd2, 'brf_sum_text.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'brf_sum_text.csv'), 'ab'), delimiter='\t')
             for k, v in brf_sum_text.items():
                 brf_sum_textfile.writerow([k]+v)
 
             detail_desc_textfile = csv.writer(
-                open(os.path.join(fd2, 'detail_desc_text.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'ab'), delimiter='\t')
             for k, v in detail_desc_text.items():
                 try:
                     detail_desc_textfile.writerow([k]+v)
@@ -1521,37 +1521,37 @@ def parse_patents(fd, fd2):
                     detail_desc_textfile.writerow([k]+value)
 
             rel_app_textfile = csv.writer(
-                open(os.path.join(fd2, 'rel_app_text.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'rel_app_text.csv'), 'ab'), delimiter='\t')
             for k, v in rel_app_text.items():
                 rel_app_textfile.writerow([k]+v)
 
             pct_datafile = csv.writer(
-                open(os.path.join(fd2, 'pct_data.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'pct_data.csv'), 'ab'), delimiter='\t')
             for k, v in pct_data.items():
                 pct_datafile.writerow([k]+v)
 
             botanicfile = csv.writer(
-                open(os.path.join(fd2, 'botanic.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'botanic.csv'), 'ab'), delimiter='\t')
             for k, v in botanic_data.items():
                 botanicfile.writerow([k]+v)
 
             figuresfile = csv.writer(
-                open(os.path.join(fd2, 'figures.csv'), 'ab'), delimiter='\t')
+                open(os.path.join(csv_dir, 'figures.csv'), 'ab'), delimiter='\t')
             for k, v in figure_data.items():
                 figuresfile.writerow([k]+v)
 
     rawlocfile = csv.writer(
-        open(os.path.join(fd2, 'rawlocation.csv'), 'ab'), delimiter='\t')
+        open(os.path.join(csv_dir, 'rawlocation.csv'), 'ab'), delimiter='\t')
     for k, v in rawlocation.items():
         rawlocfile.writerow([k]+v)
 
     mainclassfile = csv.writer(
-        open(os.path.join(fd2, 'mainclass.csv'), 'ab'), delimiter='\t')
+        open(os.path.join(csv_dir, 'mainclass.csv'), 'ab'), delimiter='\t')
     for k, v in mainclassdata.items():
         mainclassfile.writerow(v)
 
     subclassfile = csv.writer(
-        open(os.path.join(fd2, 'subclass.csv'), 'ab'), delimiter='\t')
+        open(os.path.join(csv_dir, 'subclass.csv'), 'ab'), delimiter='\t')
     for k, v in subclassdata.items():
         subclassfile.writerow(v)
 
