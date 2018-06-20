@@ -13,6 +13,198 @@ import copy
 import sys
 
 
+def prepare_output_dir(csv_dir):
+    # Remove all files from output dir before writing
+    outdir = os.listdir(csv_dir)
+
+    for oo in outdir:
+        os.remove(os.path.join(csv_dir, oo))
+    # Rewrite files and write headers to them
+    appfile = open(os.path.join(csv_dir, 'application.csv'), 'wb')
+    appfile.write(codecs.BOM_UTF8)
+    app = csv.writer(appfile, delimiter='\t')
+    app.writerow(['app_id', 'id', 'patent_id', 'type', 'number', 'country', 'date',
+                  'id_transformed', 'number_transformed', 'series_code_transformed_from_type'])
+    appfile.close()
+
+    claimsfile = open(os.path.join(csv_dir, 'claim.csv'), 'wb')
+    claimsfile.write(codecs.BOM_UTF8)
+    clms = csv.writer(claimsfile, delimiter='\t')
+    clms.writerow(['app_id', 'uuid', 'patent_id', 'text',
+                   'dependent', 'sequence', 'exemplary'])
+    claimsfile.close()
+
+    rawlocfile = open(os.path.join(csv_dir, 'rawlocation.csv'), 'wb')
+    rawlocfile.write(codecs.BOM_UTF8)
+    rawloc = csv.writer(rawlocfile, delimiter='\t')
+    rawloc.writerow(['id', 'location_id', 'city', 'state', 'country', 'country_transformed', 'location_id_transformed'])
+    rawlocfile.close()
+
+    rawinvfile = open(os.path.join(csv_dir, 'rawinventor.csv'), 'wb')
+    rawinvfile.write(codecs.BOM_UTF8)
+    rawinv = csv.writer(rawinvfile, delimiter='\t')
+    # also no inventor id in UC Berkeley
+    rawinv.writerow(['app_id' 'uuid', 'patent_id', 'inventor_id', 'rawlocation_id',
+                     'name_first', 'name_last', 'sequence', 'rule_47'])
+    rawinvfile.close()
+
+    rawassgfile = open(os.path.join(csv_dir, 'rawassignee.csv'), 'wb')
+    rawassgfile.write(codecs.BOM_UTF8)
+    rawassg = csv.writer(rawassgfile, delimiter='\t')
+    # assignee_id not in UC Berkeley Parser
+    rawassg.writerow(['app_id', 'uuid', 'patent_id', 'assignee_id', 'rawlocation_id',
+                      'type', 'name_first', 'name_last', 'organization', 'sequence'])
+    rawassgfile.close()
+
+    ipcrfile = open(os.path.join(csv_dir, 'ipcr.csv'), 'wb')
+    ipcrfile.write(codecs.BOM_UTF8)
+    ipcr = csv.writer(ipcrfile, delimiter='\t')
+    ipcr.writerow(['app_id', 'uuid', 'patent_id', 'classification_level', 'section', 'mainclass', 'subclass', 'main_group', 'subgroup', 'symbol_position',
+                   'classification_value', 'classification_status', 'classification_data_source', 'action_date', 'ipc_version_indicator', 'sequence'])
+    ipcrfile.close()
+
+    patfile = open(os.path.join(csv_dir, 'patent.csv'), 'wb')
+    patfile.write(codecs.BOM_UTF8)
+    pat = csv.writer(patfile, delimiter='\t')
+    pat.writerow(['app_id', 'id', 'type', 'number', 'country', 'date',
+                  'abstract', 'title', 'kind', 'num_claims', 'filename'])
+    patfile.close()
+
+    foreigncitfile = open(os.path.join(csv_dir, 'foreigncitation.csv'), 'wb')
+    foreigncitfile.write(codecs.BOM_UTF8)
+    foreigncit = csv.writer(foreigncitfile, delimiter='\t')
+    foreigncit.writerow(['app_id', 'uuid', 'patent_id', 'date',
+                         'number', 'country', 'category', 'sequence'])
+    foreigncitfile.close()
+
+    uspatentcitfile = open(os.path.join(csv_dir, 'uspatentcitation.csv'), 'wb')
+    uspatentcitfile.write(codecs.BOM_UTF8)
+    uspatcit = csv.writer(uspatentcitfile, delimiter='\t')
+    uspatcit.writerow(['app_id', 'uuid', 'patent_id', 'citation_id', 'date', 'name',
+                       'kind', 'country', 'category', 'sequence', 'classification'])
+    uspatentcitfile.close()
+
+    usappcitfile = open(os.path.join(csv_dir, 'usapplicationcitation.csv'), 'wb')
+    usappcitfile.write(codecs.BOM_UTF8)
+    usappcit = csv.writer(usappcitfile, delimiter='\t')
+    usappcit.writerow(['app_id', 'uuid', 'patent_id', 'application_id', 'date',
+                       'name', 'kind', 'number', 'country', 'category', 'sequence'])
+    usappcitfile.close()
+
+    uspcfile = open(os.path.join(csv_dir, 'uspc.csv'), 'wb')
+    uspcfile.write(codecs.BOM_UTF8)
+    uspcc = csv.writer(uspcfile, delimiter='\t')
+    uspcc.writerow(['app_id', 'uuid', 'patent_id', 'mainclass_id',
+                    'subclass_id', 'sequence'])
+    uspcfile.close()
+
+    otherreffile = open(os.path.join(csv_dir, 'otherreference.csv'), 'wb')
+    otherreffile.write(codecs.BOM_UTF8)
+    otherref = csv.writer(otherreffile, delimiter='\t')
+    otherref.writerow(['app_id', 'uuid', 'patent_id', 'text', 'sequence'])
+    otherreffile.close()
+
+    rawlawyerfile = open(os.path.join(csv_dir, 'rawlawyer.csv'), 'wb')
+    rawlawyerfile.write(codecs.BOM_UTF8)
+    rawlawyer = csv.writer(rawlawyerfile, delimiter='\t')
+    # no lawyer id in UC Berkeley parser
+    rawlawyer.writerow(['app_id', 'uuid', 'lawyer_id', 'patent_id', 'name_first',
+                        'name_last', 'organization', 'country', 'sequence'])
+    rawlawyerfile.close()
+
+    mainclassfile = open(os.path.join(csv_dir, 'mainclass.csv'), 'wb')
+    mainclassfile.write(codecs.BOM_UTF8)
+    mainclass = csv.writer(mainclassfile, delimiter='\t')
+    mainclass.writerow(['id'])
+    mainclassfile.close()
+
+    subclassfile = open(os.path.join(csv_dir, 'subclass.csv'), 'wb')
+    subclassfile.write(codecs.BOM_UTF8)
+    subclass = csv.writer(subclassfile, delimiter='\t')
+    subclass.writerow(['id'])
+    subclassfile.close()
+
+    examinerfile = open(os.path.join(csv_dir, 'rawexaminer.csv'), 'wb')
+    examinerfile.write(codecs.BOM_UTF8)
+    exam = csv.writer(examinerfile, delimiter='\t')
+    exam.writerow(['app_id', 'id', 'patent_id', 'fname', 'lname', 'role', 'group'])
+    examinerfile.close()
+
+    forpriorityfile = open(os.path.join(csv_dir, 'foreign_priority.csv'), 'wb')
+    forpriorityfile.write(codecs.BOM_UTF8)
+    forpriority = csv.writer(forpriorityfile, delimiter='\t')
+    forpriority.writerow(['app_id', 'uuid', 'patent_id', "sequence",
+                          "kind", "app_num", "app_date", "country"])
+    forpriorityfile.close()
+
+    us_term_of_grantfile = open(os.path.join(
+        csv_dir, 'us_term_of_grant.csv'), 'wb')
+    us_term_of_grantfile.write(codecs.BOM_UTF8)
+    us_term_of_grant = csv.writer(us_term_of_grantfile, delimiter='\t')
+    us_term_of_grant.writerow(['app_id', 'uuid', 'patent_id', 'lapse_of_patent',
+                               'disclaimer_date', 'term_disclaimer', 'term_grant', 'term_ext'])
+    us_term_of_grantfile.close()
+
+    usreldocfile = open(os.path.join(csv_dir, 'usreldoc.csv'), 'wb')
+    usreldocfile.write(codecs.BOM_UTF8)
+    usrel = csv.writer(usreldocfile, delimiter='\t')
+    usrel.writerow(['app_id', 'uuid', 'patent_id', 'doc_type',  'relkind', 'reldocno',
+                    'relcountry', 'reldate',  'parent_status', 'rel_seq', 'kind'])
+    usreldocfile.close()
+
+    draw_desc_textfile = open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'wb')
+    draw_desc_textfile.write(codecs.BOM_UTF8)
+    drawdesc = csv.writer(draw_desc_textfile, delimiter='\t')
+    drawdesc.writerow(['app_id', 'uuid', 'patent_id', 'text'])
+    draw_desc_textfile.close()
+
+    brf_sum_textfile = open(os.path.join(csv_dir, 'brf_sum_text.csv'), 'wb')
+    brf_sum_textfile.write(codecs.BOM_UTF8)
+    brf_sum = csv.writer(brf_sum_textfile, delimiter='\t')
+    brf_sum.writerow(['app_id', 'uuid', 'patent_id', 'text'])
+    brf_sum_textfile.close()
+
+    rel_app_textfile = open(os.path.join(csv_dir, 'rel_app_text.csv'), 'wb')
+    rel_app_textfile.write(codecs.BOM_UTF8)
+    rel_app = csv.writer(rel_app_textfile, delimiter='\t')
+    rel_app.writerow(['app_id', 'uuid', 'patent_id', 'text'])
+    rel_app_textfile.close()
+
+    det_desc_textfile = open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'wb')
+    det_desc_textfile.write(codecs.BOM_UTF8)
+    det_desc = csv.writer(det_desc_textfile, delimiter='\t')
+    det_desc.writerow(['app_id', 'uuid', 'patent_id', "text"])
+    det_desc_textfile.close()
+
+    non_inventor_applicantfile = open(os.path.join(
+        csv_dir, 'non_inventor_applicant.csv'), 'wb')
+    non_inventor_applicantfile.write(codecs.BOM_UTF8)
+    noninventorapplicant = csv.writer(
+        non_inventor_applicantfile, delimiter='\t')
+    noninventorapplicant.writerow(['app_id', 'uuid', 'patent_id', "location_id", "last_name",
+                                   "first_name", "org_name", "sequence", "designation", "applicant_type"])
+    non_inventor_applicantfile.close()
+
+    pct_datafile = open(os.path.join(csv_dir, 'pct_data.csv'), 'wb')
+    pct_datafile.write(codecs.BOM_UTF8)
+    pct_data = csv.writer(pct_datafile, delimiter='\t')
+    pct_data.writerow(['app_id', 'uuid', 'patent_id', 'rel_id', 'date',
+                       '371_date', 'country', 'kind', "doc_type", "102_date"])
+    pct_datafile.close()
+
+    botanicfile = open(os.path.join(csv_dir, 'botanic.csv'), 'wb')
+    botanicfile.write(codecs.BOM_UTF8)
+    botanic_info = csv.writer(botanicfile, delimiter='\t')
+    botanic_info.writerow(['application_id', 'uuid', 'patent_id', 'app_id', 'latin_name', "variety"])
+    botanicfile.close()
+
+    figurefile = open(os.path.join(csv_dir, 'figures.csv'), 'wb')
+    figurefile.write(codecs.BOM_UTF8)
+    figure_info = csv.writer(figurefile, delimiter='\t')
+    figure_info.writerow(['app_id', 'uuid', 'patent_id', 'num_figs', "num_sheets"])
+    figurefile.close()
+
+
 def parse_patents(xml_dir, csv_dir):
     _char = re.compile(r'&(\w+?);')
 
@@ -52,200 +244,13 @@ def parse_patents(xml_dir, csv_dir):
     diri = [d for d in diri if re.search('XML', d, re.I)]
     print "Just to check the list of XML files is", diri
 
+    # Emty content of CSV_DIR and create new empty csv files
+    prepare_output_dir(csv_dir)
+
     # Initiate HTML Parser for unescape characters
     h = HTMLParser.HTMLParser()
 
-    # Remove all files from output dir before writing
-    outdir = os.listdir(csv_dir)
-
-    for oo in outdir:
-        os.remove(os.path.join(csv_dir, oo))
-    # Rewrite files and write headers to them
-    appfile = open(os.path.join(csv_dir, 'application.csv'), 'wb')
-    appfile.write(codecs.BOM_UTF8)
-    app = csv.writer(appfile, delimiter='\t')
-    app.writerow(['app_id', 'id', 'patent_id', 'type', 'number', 'country', 'date',
-                  'id_transformed', 'number_transformed', 'series_code_transformed_from_type'])
-
-    claimsfile = open(os.path.join(csv_dir, 'claim.csv'), 'wb')
-    claimsfile.write(codecs.BOM_UTF8)
-    clms = csv.writer(claimsfile, delimiter='\t')
-    clms.writerow(['app_id', 'uuid', 'patent_id', 'text',
-                   'dependent', 'sequence', 'exemplary'])
-
-    rawlocfile = open(os.path.join(csv_dir, 'rawlocation.csv'), 'wb')
-    rawlocfile.write(codecs.BOM_UTF8)
-    rawloc = csv.writer(rawlocfile, delimiter='\t')
-    rawloc.writerow(['id', 'location_id', 'city', 'state', 'country', 'country_transformed', 'location_id_transformed'])
-
-    rawinvfile = open(os.path.join(csv_dir, 'rawinventor.csv'), 'wb')
-    rawinvfile.write(codecs.BOM_UTF8)
-    rawinv = csv.writer(rawinvfile, delimiter='\t')
-    # also no inventor id in UC Berkeley
-    rawinv.writerow(['app_id' 'uuid', 'patent_id', 'inventor_id', 'rawlocation_id',
-                     'name_first', 'name_last', 'sequence', 'rule_47'])
-
-    rawassgfile = open(os.path.join(csv_dir, 'rawassignee.csv'), 'wb')
-    rawassgfile.write(codecs.BOM_UTF8)
-    rawassg = csv.writer(rawassgfile, delimiter='\t')
-    # assignee_id not in UC Berkeley Parser
-    rawassg.writerow(['app_id', 'uuid', 'patent_id', 'assignee_id', 'rawlocation_id',
-                      'type', 'name_first', 'name_last', 'organization', 'sequence'])
-
-    ipcrfile = open(os.path.join(csv_dir, 'ipcr.csv'), 'wb')
-    ipcrfile.write(codecs.BOM_UTF8)
-    ipcr = csv.writer(ipcrfile, delimiter='\t')
-    ipcr.writerow(['app_id', 'uuid', 'patent_id', 'classification_level', 'section', 'mainclass', 'subclass', 'main_group', 'subgroup', 'symbol_position',
-                   'classification_value', 'classification_status', 'classification_data_source', 'action_date', 'ipc_version_indicator', 'sequence'])
-
-    patfile = open(os.path.join(csv_dir, 'patent.csv'), 'wb')
-    patfile.write(codecs.BOM_UTF8)
-    pat = csv.writer(patfile, delimiter='\t')
-    pat.writerow(['app_id', 'id', 'type', 'number', 'country', 'date',
-                  'abstract', 'title', 'kind', 'num_claims', 'filename'])
-
-    foreigncitfile = open(os.path.join(csv_dir, 'foreigncitation.csv'), 'wb')
-    foreigncitfile.write(codecs.BOM_UTF8)
-    foreigncit = csv.writer(foreigncitfile, delimiter='\t')
-    foreigncit.writerow(['app_id', 'uuid', 'patent_id', 'date',
-                         'number', 'country', 'category', 'sequence'])
-
-    uspatentcitfile = open(os.path.join(csv_dir, 'uspatentcitation.csv'), 'wb')
-    uspatentcitfile.write(codecs.BOM_UTF8)
-    uspatcit = csv.writer(uspatentcitfile, delimiter='\t')
-    uspatcit.writerow(['app_id', 'uuid', 'patent_id', 'citation_id', 'date', 'name',
-                       'kind', 'country', 'category', 'sequence', 'classification'])
-
-    usappcitfile = open(os.path.join(csv_dir, 'usapplicationcitation.csv'), 'wb')
-    usappcitfile.write(codecs.BOM_UTF8)
-    usappcit = csv.writer(usappcitfile, delimiter='\t')
-    usappcit.writerow(['app_id', 'uuid', 'patent_id', 'application_id', 'date',
-                       'name', 'kind', 'number', 'country', 'category', 'sequence'])
-
-    uspcfile = open(os.path.join(csv_dir, 'uspc.csv'), 'wb')
-    uspcfile.write(codecs.BOM_UTF8)
-    uspcc = csv.writer(uspcfile, delimiter='\t')
-    uspcc.writerow(['app_id', 'uuid', 'patent_id', 'mainclass_id',
-                    'subclass_id', 'sequence'])
-
-    otherreffile = open(os.path.join(csv_dir, 'otherreference.csv'), 'wb')
-    otherreffile.write(codecs.BOM_UTF8)
-    otherref = csv.writer(otherreffile, delimiter='\t')
-    otherref.writerow(['app_id', 'uuid', 'patent_id', 'text', 'sequence'])
-
-    rawlawyerfile = open(os.path.join(csv_dir, 'rawlawyer.csv'), 'wb')
-    rawlawyerfile.write(codecs.BOM_UTF8)
-    rawlawyer = csv.writer(rawlawyerfile, delimiter='\t')
-    # no lawyer id in UC Berkeley parser
-    rawlawyer.writerow(['app_id', 'uuid', 'lawyer_id', 'patent_id', 'name_first',
-                        'name_last', 'organization', 'country', 'sequence'])
-
-    mainclassfile = open(os.path.join(csv_dir, 'mainclass.csv'), 'wb')
-    mainclassfile.write(codecs.BOM_UTF8)
-    mainclass = csv.writer(mainclassfile, delimiter='\t')
-    mainclass.writerow(['id'])
-
-    subclassfile = open(os.path.join(csv_dir, 'subclass.csv'), 'wb')
-    subclassfile.write(codecs.BOM_UTF8)
-    subclass = csv.writer(subclassfile, delimiter='\t')
-    subclass.writerow(['id'])
-
-    examinerfile = open(os.path.join(csv_dir, 'rawexaminer.csv'), 'wb')
-    examinerfile.write(codecs.BOM_UTF8)
-    exam = csv.writer(examinerfile, delimiter='\t')
-    exam.writerow(['app_id', 'id', 'patent_id', 'fname', 'lname', 'role', 'group'])
-
-    forpriorityfile = open(os.path.join(csv_dir, 'foreign_priority.csv'), 'wb')
-    forpriorityfile.write(codecs.BOM_UTF8)
-    forpriority = csv.writer(forpriorityfile, delimiter='\t')
-    forpriority.writerow(['app_id', 'uuid', 'patent_id', "sequence",
-                          "kind", "app_num", "app_date", "country"])
-
-    us_term_of_grantfile = open(os.path.join(
-        csv_dir, 'us_term_of_grant.csv'), 'wb')
-    us_term_of_grantfile.write(codecs.BOM_UTF8)
-    us_term_of_grant = csv.writer(us_term_of_grantfile, delimiter='\t')
-    us_term_of_grant.writerow(['app_id', 'uuid', 'patent_id', 'lapse_of_patent',
-                               'disclaimer_date', 'term_disclaimer', 'term_grant', 'term_ext'])
-
-    usreldocfile = open(os.path.join(csv_dir, 'usreldoc.csv'), 'wb')
-    usreldocfile.write(codecs.BOM_UTF8)
-    usrel = csv.writer(usreldocfile, delimiter='\t')
-    usrel.writerow(['app_id', 'uuid', 'patent_id', 'doc_type',  'relkind', 'reldocno',
-                    'relcountry', 'reldate',  'parent_status', 'rel_seq', 'kind'])
-
-    draw_desc_textfile = open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'wb')
-    draw_desc_textfile.write(codecs.BOM_UTF8)
-    drawdesc = csv.writer(draw_desc_textfile, delimiter='\t')
-    drawdesc.writerow(['app_id', 'uuid', 'patent_id', 'text'])
-
-    brf_sum_textfile = open(os.path.join(csv_dir, 'brf_sum_text.csv'), 'wb')
-    brf_sum_textfile.write(codecs.BOM_UTF8)
-    brf_sum = csv.writer(brf_sum_textfile, delimiter='\t')
-    brf_sum.writerow(['app_id', 'uuid', 'patent_id', 'text'])
-
-    rel_app_textfile = open(os.path.join(csv_dir, 'rel_app_text.csv'), 'wb')
-    rel_app_textfile.write(codecs.BOM_UTF8)
-    rel_app = csv.writer(rel_app_textfile, delimiter='\t')
-    rel_app.writerow(['app_id', 'uuid', 'patent_id', 'text'])
-
-    det_desc_textfile = open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'wb')
-    det_desc_textfile.write(codecs.BOM_UTF8)
-    det_desc = csv.writer(det_desc_textfile, delimiter='\t')
-    det_desc.writerow(['app_id', 'uuid', 'patent_id', "text"])
-
-    non_inventor_applicantfile = open(os.path.join(
-        csv_dir, 'non_inventor_applicant.csv'), 'wb')
-    non_inventor_applicantfile.write(codecs.BOM_UTF8)
-    noninventorapplicant = csv.writer(
-        non_inventor_applicantfile, delimiter='\t')
-    noninventorapplicant.writerow(['app_id', 'uuid', 'patent_id', "location_id", "last_name",
-                                   "first_name", "org_name", "sequence", "designation", "applicant_type"])
-
-    pct_datafile = open(os.path.join(csv_dir, 'pct_data.csv'), 'wb')
-    pct_datafile.write(codecs.BOM_UTF8)
-    pct_data = csv.writer(pct_datafile, delimiter='\t')
-    pct_data.writerow(['app_id', 'uuid', 'patent_id', 'rel_id', 'date',
-                       '371_date', 'country', 'kind', "doc_type", "102_date"])
-
-    botanicfile = open(os.path.join(csv_dir, 'botanic.csv'), 'wb')
-    botanicfile.write(codecs.BOM_UTF8)
-    botanic_info = csv.writer(botanicfile, delimiter='\t')
-    botanic_info.writerow(['application_id', 'uuid', 'patent_id', 'app_id', 'latin_name', "variety"])
-
-    figurefile = open(os.path.join(csv_dir, 'figures.csv'), 'wb')
-    figurefile.write(codecs.BOM_UTF8)
-    figure_info = csv.writer(figurefile, delimiter='\t')
-    figure_info.writerow(['app_id', 'uuid', 'patent_id', 'num_figs', "num_sheets"])
-
-    mainclassfile.close()
-    subclassfile.close()
-    appfile.close()
-    rawlocfile.close()
-    rawinvfile.close()
-    rawassgfile.close()
-    ipcrfile.close()
-    otherreffile.close()
-    patfile.close()
-    rawlawyerfile.close()
-    uspatentcitfile.close()
-    uspcfile.close()
-    foreigncitfile.close()
-    claimsfile.close()
-    # usappcitfile.close()
-    examinerfile.close()
-    forpriorityfile.close()
-    us_term_of_grantfile.close()
-    usreldocfile.close()
-    non_inventor_applicantfile.close()
-    draw_desc_textfile.close()
-    brf_sum_textfile.close()
-    rel_app_textfile.close()
-    det_desc_textfile.close()
-    pct_datafile.close()
-    botanicfile.close()
-    figurefile.close()
-    usappcitfile.close()
+    
 
     loggroups = ["publication-reference", "application-reference", "us-application-series-code", "number-of-claims", "claims", "?BRFSUM", "?DETDESC", "pct-or-regional-filing-data", "us-botanic",
                  "citations", "assignees", "inventors", "agents", "us-related-documents", "applicants", "us-applicants", 'description-of-drawings', 'description', "pct-or-regional-publishing-data", "us-patent-grant",
@@ -262,8 +267,7 @@ def parse_patents(xml_dir, csv_dir):
     #diri = [d for d in diri if d.startswith("ipg" + str(year))]
     for d in diri:
         print d
-        infile = open(xml_dir+d, 'rb').read().decode('utf-8',
-                                                'ignore').replace('&angst', '&aring')
+        infile = open(xml_dir+d, 'rb').read().decode('utf-8', 'ignore').replace('&angst', '&aring')
         infile = infile.encode('utf-8', 'ignore')
         infile = _char.sub(_char_unescape, infile)
         #infile = h.unescape(infile).encode('utf-8')
@@ -366,22 +370,17 @@ def parse_patents(xml_dir, csv_dir):
                 publication = avail_fields['publication-reference'].split("\n")
                 for line in publication:
                     if line.startswith("<doc-number"):
-                        docno = re.search(
-                            '<doc-number>(.*?)</doc-number>', line).group(1)
+                        docno = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                     if line.startswith("<kind"):
-                        patkind = re.search(
-                            '<kind>(.*?)</kind>', line).group(1)
+                        patkind = re.search('<kind>(.*?)</kind>', line).group(1)
                     if line.startswith("<country"):
-                        patcountry = re.search(
-                            '<country>(.*?)</country>', line).group(1)
+                        patcountry = re.search('<country>(.*?)</country>', line).group(1)
                     if line.startswith("<date"):
-                        issdate = re.search(
-                            '<date>(.*?)</date>', line).group(1)
+                        issdate = re.search('<date>(.*?)</date>', line).group(1)
                         if issdate[6:] != "00":
-                            issdate = issdate[:4]+'-' + \
-                                issdate[4:6]+'-'+issdate[6:]
+                            issdate = issdate[:4]+'-' + issdate[4:6]+'-'+issdate[6:]
                         else:
-                            issdate = issdate[:4]+'-'+issdate[4:6]+'-'+'01'
+                            issdate = issdate[:4]+'-'+ issdate[4:6]+'-'+'01'
                             year = issdate[:4]
 
                 num = re.findall('\d+', docno)
@@ -410,8 +409,7 @@ def parse_patents(xml_dir, csv_dir):
             # try:
             title = None
             if 'invention-title' in avail_fields:
-                title = re.search(
-                    '>(.*?)<', avail_fields["invention-title"]).group(1)
+                title = re.search('>(.*?)<', avail_fields["invention-title"]).group(1)
                 if title == '':
                     text = avail_fields['invention-title']
                     title = text[text.find('>')+1:text.rfind('<')]
@@ -425,23 +423,18 @@ def parse_patents(xml_dir, csv_dir):
                 pass
 
             try:
-                application_list = avail_fields['application-reference'].split(
-                    "\n")
+                application_list = avail_fields['application-reference'].split("\n")
                 apptype = None
                 for line in application_list:
                     if line.startswith("<doc-number"):
-                        appnum = re.search(
-                            '<doc-number>(.*?)</doc-number>', line).group(1)
+                        appnum = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                         app_id = appnum
                     if line.startswith("<country"):
-                        appcountry = re.search(
-                            '<country>(.*?)</country>', line).group(1)
+                        appcountry = re.search('<country>(.*?)</country>', line).group(1)
                     if line.startswith("<date"):
-                        appdate = re.search(
-                            '<date>(.*?)</date>', line).group(1)
+                        appdate = re.search('<date>(.*?)</date>', line).group(1)
                         if appdate[6:] != "00":
-                            appdate = appdate[:4]+'-' + \
-                                appdate[4:6]+'-' + appdate[6:]
+                            appdate = appdate[:4]+'-' + appdate[4:6]+'-' + appdate[6:]
                         else:
                             appdate = appdate[:4]+'-'+appdate[4:6]+'-'+'01'
                             year = appdate[:4]
@@ -477,12 +470,9 @@ def parse_patents(xml_dir, csv_dir):
 
             #claims_list = []
             try:
-                claimsdata = re.search(
-                    '<claims.*?>(.*?)</claims>', i, re.DOTALL).group(1)
-                claim_number = re.finditer(
-                    '<claim id(.*?)>', claimsdata, re.DOTALL)
-                claims_iter = re.finditer(
-                    '<claim.*?>(.*?)</claim>', claimsdata, re.DOTALL)
+                claimsdata = re.search('<claims.*?>(.*?)</claims>', i, re.DOTALL).group(1)
+                claim_number = re.finditer('<claim id(.*?)>', claimsdata, re.DOTALL)
+                claims_iter = re.finditer('<claim.*?>(.*?)</claim>', claimsdata, re.DOTALL)
 
                 claim_info = []
                 claim_num_info = []
@@ -490,8 +480,7 @@ def parse_patents(xml_dir, csv_dir):
                     claim = claim.group(1)
                     this_claim = []
                     try:
-                        dependent = re.search(
-                            '<claim-ref idref="CLM-(\d+)">', claim).group(1)
+                        dependent = re.search('<claim-ref idref="CLM-(\d+)">', claim).group(1)
                         dependent = int(dependent)
                         # this_claim.append(dependent)
                     except:
@@ -548,53 +537,37 @@ def parse_patents(xml_dir, csv_dir):
                     ipcr_fields = j.split("\n")
                     for line in ipcr_fields:
                         if line.startswith("<classification-level"):
-                            class_level = re.search(
-                                '<classification-level>(.*?)</classification-level>', line).group(1)
+                            class_level = re.search('<classification-level>(.*?)</classification-level>', line).group(1)
                         if line.startswith("<section"):
-                            section = re.search(
-                                '<section>(.*?)</section>', line).group(1)
+                            section = re.search('<section>(.*?)</section>', line).group(1)
                         if line.startswith("<class>"):
-                            mainclass = re.search(
-                                '<class>(.*?)</class>', line).group(1)
+                            mainclass = re.search('<class>(.*?)</class>', line).group(1)
                         if line.startswith("<subclass"):
-                            subclass = re.search(
-                                '<subclass>(.*?)</subclass>', line).group(1)
+                            subclass = re.search('<subclass>(.*?)</subclass>', line).group(1)
                         if line.startswith("<main-group"):
-                            group = re.search(
-                                '<main-group>(.*?)</main-group>', line).group(1)
+                            group = re.search('<main-group>(.*?)</main-group>', line).group(1)
                         if line.startswith("<subgroup"):
-                            subgroup = re.search(
-                                '<subgroup>(.*?)</subgroup>', line).group(1)
+                            subgroup = re.search('<subgroup>(.*?)</subgroup>', line).group(1)
                         if line.startswith("<ipc-version-indicator"):
-                            ipcrversion = re.search(
-                                '<date>(.*?)</date>', line).group(1)
+                            ipcrversion = re.search('<date>(.*?)</date>', line).group(1)
                             if ipcrversion[6:] != "00":
-                                ipcrversion = ipcrversion[:4]+'-' + \
-                                    ipcrversion[4:6]+'-'+ipcrversion[6:]
+                                ipcrversion = ipcrversion[:4]+'-' + ipcrversion[4:6]+'-'+ipcrversion[6:]
                             else:
-                                ipcrversion = ipcrversion[:4] + \
-                                    '-'+ipcrversion[4:6]+'-'+'01'
+                                ipcrversion = ipcrversion[:4] + '-'+ipcrversion[4:6]+'-'+'01'
                         if line.startswith("<symbol-position"):
-                            symbol_position = re.search(
-                                '<symbol-position>(.*?)</symbol-position>', line).group(1)
+                            symbol_position = re.search('<symbol-position>(.*?)</symbol-position>', line).group(1)
                         if line.startswith("<classification-value"):
-                            classification_value = re.search(
-                                '<classification-value>(.*?)</classification-value>', line).group(1)
+                            classification_value = re.search('<classification-value>(.*?)</classification-value>', line).group(1)
                         if line.startswith("<classification-status"):
-                            classification_status = re.search(
-                                '<classification-status>(.*?)</classification-status>', line).group(1)
+                            classification_status = re.search('<classification-status>(.*?)</classification-status>', line).group(1)
                         if line.startswith("<classification-data-source"):
-                            classification_source = re.search(
-                                '<classification-data-source>(.*?)</classification-data-source>', line).group(1)
+                            classification_source = re.search('<classification-data-source>(.*?)</classification-data-source>', line).group(1)
                         if line.startswith("<action-date>"):
-                            action_date = re.search(
-                                '<date>(.*?)</date>', line).group(1)
+                            action_date = re.search('<date>(.*?)</date>', line).group(1)
                             if action_date[6:] != "00":
-                                action_date = action_date[:4]+'-' + \
-                                    action_date[4:6]+'-'+action_date[6:]
+                                action_date = action_date[:4]+'-' + action_date[4:6]+'-'+action_date[6:]
                             else:
-                                action_date = action_date[:4] + \
-                                    '-'+action_date[4:6]+'-'+'01'
+                                action_date = action_date[:4] + '-'+action_date[4:6]+'-'+'01'
                     # if all the valu[es are "NULL", set will have len(1) and we can ignore it. This is bad
                     values = set(
                         [section, mainclass, subclass, group, subgroup])
@@ -615,8 +588,7 @@ def parse_patents(xml_dir, csv_dir):
                 n = 0
                 for line in national:
                     if line.startswith('<main-classification'):
-                        main = re.search(
-                            '<main-classification>(.*?)</main-classification', line).group(1)
+                        main = re.search('<main-classification>(.*?)</main-classification', line).group(1)
                         crossrefsub = main[3:].replace(" ", "")
                         if len(crossrefsub) > 3 and re.search('^[A-Z]', crossrefsub[3:]) is None:
                             crossrefsub = crossrefsub[:3]+'.'+crossrefsub[3:]
@@ -628,17 +600,13 @@ def parse_patents(xml_dir, csv_dir):
                         mainclassdata[main] = [main]
                         subclassdata[sub] = [sub]
                     elif line.startswith("<further-classification"):
-                        further_class = re.search(
-                            '<further-classification>(.*?)</further-classification', line).group(1)
+                        further_class = re.search('<further-classification>(.*?)</further-classification', line).group(1)
                         further_sub_class = further_class[3:].replace(" ", "")
                         if len(further_sub_class) > 3 and re.search('^[A-Z]', further_sub_class[3:]) is None:
-                            further_sub_class = further_sub_class[:3] + \
-                                '.'+further_sub_class[3:]
-                        further_sub_class = re.sub(
-                            '^0+', '', further_sub_class)
+                            further_sub_class = further_sub_class[:3] + '.'+further_sub_class[3:]
+                        further_sub_class = re.sub('^0+', '', further_sub_class)
                         if re.search('[A-Z]{3}', further_sub_class[:3]):
-                            further_sub_class = further_sub_class.replace(
-                                ".", "")
+                            further_sub_class = further_sub_class.replace(".", "")
                         further_class = further_class[:3].replace(" ", "")
                         mainclassdata[further_class] = [further_class]
                         if further_sub_class != "":
@@ -651,12 +619,10 @@ def parse_patents(xml_dir, csv_dir):
             # I think it may be the patent cit/other cit problem
             if ("references-cited" in avail_fields) | ('us-references-cited' in avail_fields):
                 if "references-cited" in avail_fields:
-                    citation = re.split(
-                        "<citation", avail_fields['references-cited'])
+                    citation = re.split("<citation", avail_fields['references-cited'])
                 # in 2021 schema changed to us-references-cited instead of references-cited
                 else:
-                    citation = re.split(
-                        "<us-citation", avail_fields['us-references-cited'])
+                    citation = re.split("<us-citation", avail_fields['us-references-cited'])
                 otherseq = 0
                 forpatseq = 0
                 uspatseq = 0
@@ -678,8 +644,7 @@ def parse_patents(xml_dir, csv_dir):
                     to_process = i.split('\n')
                     for line in to_process:
                         if line.startswith("<doc-number"):
-                            citdocno = re.search(
-                                '<doc-number>(.*?)</doc-number>', line).group(1)
+                            citdocno = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                             # figure out if this is a citation to an application
                             if re.match(r'^[A-Z]*\d+$', citdocno):
                                 num = re.findall('\d+', citdocno)
@@ -697,33 +662,24 @@ def parse_patents(xml_dir, csv_dir):
                                 app_flag = True
                         try:
                             if line.startswith("<kind"):
-                                citkind = re.search(
-                                    '<kind>(.*?)</kind>', line).group(1)
+                                citkind = re.search('<kind>(.*?)</kind>', line).group(1)
                             if line.startswith("<category"):
-                                citcategory = re.search(
-                                    '<category>(.*?)</category>', line).group(1)
+                                citcategory = re.search('<category>(.*?)</category>', line).group(1)
                             if line.startswith("<country"):
-                                citcountry = re.search(
-                                    '<country>(.*?)</country>', line).group(1)
+                                citcountry = re.search('<country>(.*?)</country>', line).group(1)
                             if line.startswith("<name"):
-                                name = re.search(
-                                    "<name>(.*?)</name>", line).group(1)
+                                name = re.search("<name>(.*?)</name>", line).group(1)
                             if line.startswith("<classification-national"):
-                                ref_class = re.search(
-                                    "<main-classification>(.*?)</main-classification", line).group(1)
+                                ref_class = re.search("<main-classification>(.*?)</main-classification", line).group(1)
                             if line.startswith("<date"):
-                                citdate = re.search(
-                                    '<date>(.*?)</date>', line).group(1)
+                                citdate = re.search('<date>(.*?)</date>', line).group(1)
                                 if citdate[6:] != "00":
-                                    citdate = citdate[:4]+'-' + \
-                                        citdate[4:6]+'-'+citdate[6:]
+                                    citdate = citdate[:4]+'-' + citdate[4:6]+'-'+citdate[6:]
                                 else:
-                                    citdate = citdate[:4] + \
-                                        '-'+citdate[4:6]+'-'+'01'
+                                    citdate = citdate[:4] + '-'+citdate[4:6]+'-'+'01'
                                     year = citdate[:4]
                             if line.startswith("<othercit"):
-                                text = re.search(
-                                    "<othercit>(.*?)</othercit>", line).group(1)
+                                text = re.search("<othercit>(.*?)</othercit>", line).group(1)
                         except:
                             print "Problem with other variables"
                     if citcountry == "US":
@@ -761,34 +717,25 @@ def parse_patents(xml_dir, csv_dir):
                         one_assignee = assignees[i].split("\n")
                         for line in one_assignee:
                             if line.startswith("<orgname"):
-                                assgorg = re.search(
-                                    '<orgname>(.*?)</orgname>', line).group(1)
+                                assgorg = re.search('<orgname>(.*?)</orgname>', line).group(1)
                             if line.startswith("<firstname"):
-                                assgfname = re.search(
-                                    '<firstname>(.*?)</firstname>', line).group(1)
+                                assgfname = re.search('<firstname>(.*?)</firstname>', line).group(1)
                             if line.startswith("<lastname"):
-                                assglname = re.search(
-                                    '<lastname>(.*?)</lastname>', line).group(1)
+                                assglname = re.search('<lastname>(.*?)</lastname>', line).group(1)
                             # handle differnt spelling of tags
                             if line.startswith("<last-name"):
-                                assglname = re.search(
-                                    '<last-name>(.*?)</last-name>', line).group(1)
+                                assglname = re.search('<last-name>(.*?)</last-name>', line).group(1)
                             if line.startswith("<first-name"):
-                                assgfname = re.search(
-                                    '<first-name>(.*?)</first-name>', line).group(1)
+                                assgfname = re.search('<first-name>(.*?)</first-name>', line).group(1)
                             if line.startswith("<role"):
-                                assgtype = re.search(
-                                    '<role>(.*?)</role>', line).group(1)
+                                assgtype = re.search('<role>(.*?)</role>', line).group(1)
                                 assgtype = assgtype.lstrip("0")
                             if line.startswith("<country"):
-                                assgcountry = re.search(
-                                    '<country>(.*?)</country>', line).group(1)
+                                assgcountry = re.search('<country>(.*?)</country>', line).group(1)
                             if line.startswith("<state"):
-                                assgstate = re.search(
-                                    '<state>(.*?)</state>', line).group(1)
+                                assgstate = re.search('<state>(.*?)</state>', line).group(1)
                             if line.startswith("<city"):
-                                assgcity = re.search(
-                                    '<city>(.*?)</city>', line).group(1)
+                                assgcity = re.search('<city>(.*?)</city>', line).group(1)
                         loc_idd = id_generator()
                         rawlocation[loc_idd] = [
                             None, assgcity, assgstate, assgcountry]
@@ -802,14 +749,12 @@ def parse_patents(xml_dir, csv_dir):
 
             try:
                 if 'applicants' in avail_fields:
-                    applicant_list = re.split(
-                        "</applicant>", avail_fields['applicants'])
+                    applicant_list = re.split("</applicant>", avail_fields['applicants'])
                     # gets rid of extra last line
                     applicant_list = applicant_list[:-1]
                    #print applicant_list
                 else:
-                    applicant_list = re.split(
-                        "</us-applicant>", avail_fields['us-applicants'])
+                    applicant_list = re.split("</us-applicant>", avail_fields['us-applicants'])
                     # gets rid of extra last line
                     applicant_list = applicant_list[:-1]
                 inventor_seq = 0
@@ -830,58 +775,43 @@ def parse_patents(xml_dir, csv_dir):
                     applicant_lines = person.split("\n")
                     for line in applicant_lines:
                         if line.startswith('<applicant'):
-                            sequence = re.search(
-                                'sequence="(.*?)"', line).group(1)
-                            earlier_applicant_type = re.search(
-                                'app-type="(.*?)"', line).group(1)
-                            designation = re.search(
-                                'designation="(.*?)"', line).group(1)
+                            sequence = re.search('sequence="(.*?)"', line).group(1)
+                            earlier_applicant_type = re.search('app-type="(.*?)"', line).group(1)
+                            designation = re.search('designation="(.*?)"', line).group(1)
                         if line.startswith('<us-applicant'):
-                            sequence = re.search(
-                                'sequence="(.*?)"', line).group(1)
-                            designation = re.search(
-                                'designation="(.*?)"', line).group(1)
+                            sequence = re.search('sequence="(.*?)"', line).group(1)
+                            designation = re.search('designation="(.*?)"', line).group(1)
                             try:
-                                later_applicant_type = re.search(
-                                    'applicant-authority-category="(.*?)"', line).group(1)
+                                later_applicant_type = re.search('applicant-authority-category="(.*?)"', line).group(1)
                             except:
                                 pass
                         if line.startswith("<orgname"):
-                            orgname = re.search(
-                                '<orgname>(.*?)</orgname>', line).group(1)
+                            orgname = re.search('<orgname>(.*?)</orgname>', line).group(1)
                         if line.startswith("<first-name"):
-                            first_name = re.search(
-                                '<first-name>(.*?)</first-name>', line).group(1)
+                            first_name = re.search('<first-name>(.*?)</first-name>', line).group(1)
                         if line.startswith("<last-name"):
-                            last_name = re.search(
-                                '<last-name>(.*?)</last-name>', line).group(1)
+                            last_name = re.search('<last-name>(.*?)</last-name>', line).group(1)
                         if line.startswith('<street'):
-                            street = re.search(
-                                '<street>(.*?)</street>', line).group(1)
+                            street = re.search('<street>(.*?)</street>', line).group(1)
                         if line.startswith('<city'):
-                            city = re.search(
-                                '<city>(.*?)</city>', line).group(1)
+                            city = re.search('<city>(.*?)</city>', line).group(1)
                         if line.startswith("<state"):
-                            state = re.search(
-                                '<state>(.*?)</state>', line).group(1)
+                            state = re.search('<state>(.*?)</state>', line).group(1)
                         if line.startswith('<country'):
-                            country = re.search(
-                                '<country>(.*?)</country>', line).group(1)
+                            country = re.search('<country>(.*?)</country>', line).group(1)
                     try:  # nationality only in earlier years
                         for_nat = person.split("nationality")
                         nation = for_nat[1].split("\n")
                         for line in nation:
                             if line.startswith("<country"):
-                                nation = re.search(
-                                    '<country>(.*?)</country>', line).group(1)
+                                nation = re.search('<country>(.*?)</country>', line).group(1)
                     except:
                         pass
                     for_res = person.split("residence")
                     res = for_res[1].split("\n")
                     for line in res:
                         if line.startswith("<country"):
-                            residence = re.search(
-                                '<country>(.*?)</country>', line).group(1)
+                            residence = re.search('<country>(.*?)</country>', line).group(1)
                     # this get us the non-inventor applicants in 2013+. Inventor applicants are in applicant and also in inventor.
                     non_inventor_app_types = [
                         'legal-representative', 'party-of-interest', 'obligated-assignee', 'assignee']
@@ -912,8 +842,7 @@ def parse_patents(xml_dir, csv_dir):
 
                 # 2013 on name of the inventor is stored in the inventors block always
                 # split on live or deceased inventor
-                inventors = re.split("<inventor sequence",
-                                     avail_fields['inventors'])
+                inventors = re.split("<inventor sequence", avail_fields['inventors'])
                 # inventors = inventors[1:] #exclude the last chunk which is a waste line from after the inventor
                 for i in range(len(inventors)):
                     fname = "NULL"
@@ -925,23 +854,17 @@ def parse_patents(xml_dir, csv_dir):
                     one_inventor = inventors[i].split("\n")
                     for line in one_inventor:
                         if line.startswith("<first-name"):
-                            fname = re.search(
-                                '<first-name>(.*?)</first-name>', line).group(1)
+                            fname = re.search('<first-name>(.*?)</first-name>', line).group(1)
                         if line.startswith("<last-name"):
-                            lname = re.search(
-                                '<last-name>(.*?)</last-name>', line).group(1)
+                            lname = re.search('<last-name>(.*?)</last-name>', line).group(1)
                         if line.startswith("<zip"):
-                            invtzip = re.search(
-                                '<zip>(.*?)</zip>', line).group(1)
+                            invtzip = re.search('<zip>(.*?)</zip>', line).group(1)
                         if line.startswith("<country"):
-                            invtcountry = re.search(
-                                '<country>(.*?)</country>', line).group(1)
+                            invtcountry = re.search('<country>(.*?)</country>', line).group(1)
                         if line.startswith("<state"):
-                            invtstate = re.search(
-                                '<state>(.*?)</state>', line).group(1)
+                            invtstate = re.search('<state>(.*?)</state>', line).group(1)
                         if line.startswith("<city"):
-                            invtcity = re.search(
-                                '<city>(.*?)</city>', line).group(1)
+                            invtcity = re.search('<city>(.*?)</city>', line).group(1)
                     if fname == "NULL" and lname == "NULL":
                         pass
                     else:
@@ -964,22 +887,16 @@ def parse_patents(xml_dir, csv_dir):
                     one_agent = agent[i].split("\n")
                     for line in one_agent:
                         if line.startswith("<first-name"):
-                            fname = re.search(
-                                '<first-name>(.*?)</first-name>', line).group(1)
+                            fname = re.search('<first-name>(.*?)</first-name>', line).group(1)
                         if line.startswith("<last-name"):
-                            lname = re.search(
-                                '<last-name>(.*?)</last-name>', line).group(1)
+                            lname = re.search('<last-name>(.*?)</last-name>', line).group(1)
                         if line.startswith("<country"):
-                            lawcountry = re.search(
-                                '<country>(.*?)</country>', line).group(1)
+                            lawcountry = re.search('<country>(.*?)</country>', line).group(1)
                         if line.startswith("<orgname"):
-                            laworg = re.search(
-                                '<orgname>(.*?)</orgname>', line).group(1)
+                            laworg = re.search('<orgname>(.*?)</orgname>', line).group(1)
                         if line.startswith("<agent sequence"):
-                            rep_type = re.search(
-                                'rep-type=\"(.*?)\"', line).group(1)
-                    rawlawyer[app_id] = [id_generator(), "", patent_id, fname,
-                                         lname, laworg, lawcountry, str(i)]
+                            rep_type = re.search('rep-type=\"(.*?)\"', line).group(1)
+                    rawlawyer[app_id] = [id_generator(), "", patent_id, fname, lname, laworg, lawcountry, str(i)]
             except:
                 pass
 
@@ -1000,8 +917,7 @@ def parse_patents(xml_dir, csv_dir):
                     return list_to_split
                 split_docs = iter_list_splitter(
                     [related_docs], possible_doc_type)
-                possible_relations = ['<parent-doc>', '<parent-grant-document>',
-                                      '<parent-pct-document>', '<child-doc>']
+                possible_relations = ['<parent-doc>', '<parent-grant-document>', '<parent-pct-document>', '<child-doc>']
                 rel_seq = 0
                 kind = None
                 for i in split_docs:
@@ -1014,35 +930,27 @@ def parse_patents(xml_dir, csv_dir):
                             doc_type = doc_info[1][1:-2]
                             for line in doc_info:
                                 if line.startswith("<doc-number"):
-                                    reldocno = re.search(
-                                        '<doc-number>(.*?)</doc-number>', line).group(1)
+                                    reldocno = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                                 if line.startswith("<kind"):
-                                    kind = re.search(
-                                        '<kind>(.*?)</kind>', line).group(1)
+                                    kind = re.search('<kind>(.*?)</kind>', line).group(1)
                                 if line.startswith("<country"):
-                                    relcountry = re.search(
-                                        '<country>(.*?)</country>', line).group(1)
+                                    relcountry = re.search('<country>(.*?)</country>', line).group(1)
                                 try:
                                     if line.startswith("<date"):
-                                        reldate = re.search(
-                                            '<date>(.*?)</date>', line).group(1)
+                                        reldate = re.search('<date>(.*?)</date>', line).group(1)
                                         if reldate[6:] != "00":
-                                            reldate = reldate[:4]+'-' + \
-                                                reldate[4:6]+'-'+reldate[6:]
+                                            reldate = reldate[:4]+'-' + reldate[4:6]+'-'+reldate[6:]
                                         else:
-                                            reldate = reldate[:4] + \
-                                                '-'+reldate[4:6]+'-'+'01'
+                                            reldate = reldate[:4] + '-'+reldate[4:6]+'-'+'01'
                                             year = reldate[:4]
                                 except:
                                     print "Missing date on usreldoc"
                                     reldate = "0000-00-00"
-                            usreldoc[app_id] = [id_generator(), patent_id, doc_type, "NULL", reldocno,
-                                                relcountry, reldate, "NULL", rel_seq, kind]
+                            usreldoc[app_id] = [id_generator(), patent_id, doc_type, "NULL", reldocno, relcountry, reldate, "NULL", rel_seq, kind]
                             #usrel.writerow(['uuid', 'patent_id', 'doc_type',  'relkind', 'reldocno', 'relcountry', 'reldate',  'parent_status', 'rel_seq','kind'])
                             rel_seq += 1
                         else:
-                            split_by_relation = iter_list_splitter(
-                                [i], possible_relations)
+                            split_by_relation = iter_list_splitter([i], possible_relations)
                             # the first item in the list is not a document
                             for j in split_by_relation[1:]:
                                 parent_or_child = j.split("\n")
@@ -1063,39 +971,30 @@ def parse_patents(xml_dir, csv_dir):
                                 relparentstatus = None
                                 for line in parent_or_child:
                                     if line.startswith("<doc-number"):
-                                        reldocno = re.search(
-                                            '<doc-number>(.*?)</doc-number>', line).group(1)
+                                        reldocno = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                                     if line.startswith("<kind"):
-                                        kind = re.search(
-                                            '<kind>(.*?)</kind>', line).group(1)
+                                        kind = re.search('<kind>(.*?)</kind>', line).group(1)
                                     if line.startswith("<country"):
-                                        relcountry = re.search(
-                                            '<country>(.*?)</country>', line).group(1)
+                                        relcountry = re.search('<country>(.*?)</country>', line).group(1)
                                     try:
                                         if line.startswith("<date"):
-                                            reldate = re.search(
-                                                '<date>(.*?)</date>', line).group(1)
+                                            reldate = re.search('<date>(.*?)</date>', line).group(1)
                                             if reldate[6:] != "00":
-                                                reldate = reldate[:4]+'-' + \
-                                                    reldate[4:6] + \
-                                                    '-'+reldate[6:]
+                                                reldate = reldate[:4]+'-' + reldate[4:6] + '-'+reldate[6:]
                                             else:
-                                                reldate = reldate[:4] + \
-                                                    '-'+reldate[4:6]+'-'+'01'
+                                                reldate = reldate[:4] + '-'+reldate[4:6]+'-'+'01'
                                                 year = reldate[:4]
                                     except:
                                         reldate = "0000-00-00"
                                         print "Missing date on reldoc"
                                     if line.startswith("<parent-status"):
-                                        relparentstatus = re.search(
-                                            '<parent-status>(.*?)</parent-status', line).group(1)
+                                        relparentstatus = re.search('<parent-status>(.*?)</parent-status', line).group(1)
                                 usreldoc[app_id] = [id_generator(), patent_id, doc_type, reltype, reldocno,
                                                     relcountry, reldate,  relparentstatus, rel_seq, kind]
                                 rel_seq += 1
 
             try:
-                examiners = avail_fields["examiners"].split(
-                    "<assistant-examiner")
+                examiners = avail_fields["examiners"].split("<assistant-examiner")
                 department = "Null"
                 for i in range(len(examiners)):
                     list_of_examiner = examiners[i].split("\n")
@@ -1103,14 +1002,11 @@ def parse_patents(xml_dir, csv_dir):
                     lname = "Null"
                     for line in list_of_examiner:
                         if line.startswith("<first-name"):
-                            fname = re.search(
-                                "<first-name>(.*?)</first-name>", line).group(1)
+                            fname = re.search("<first-name>(.*?)</first-name>", line).group(1)
                         if line.startswith("<last-name"):
-                            lname = re.search(
-                                "<last-name>(.*?)</last-name>", line).group(1)
+                            lname = re.search("<last-name>(.*?)</last-name>", line).group(1)
                         if line.startswith("<department"):
-                            department = re.search(
-                                "<department>(.*?)</department>", line).group(1)
+                            department = re.search("<department>(.*?)</department>", line).group(1)
                     if i == 0:  # the first examiner is the primary examiner
                         examiner[app_id] = [id_generator(), docno, fname, lname, "primary", department]
                     else:
@@ -1129,28 +1025,21 @@ def parse_patents(xml_dir, csv_dir):
                     priority_claim = i.split("\n")
                     for line in priority_claim:
                         if line.startswith("<country"):
-                            country = re.search(
-                                "<country>(.*?)</country>", line).group(1)
+                            country = re.search("<country>(.*?)</country>", line).group(1)
                         if line.startswith("<doc-number"):
-                            app_num = re.search(
-                                "<doc-number>(.*?)</doc-number>", line).group(1)
+                            app_num = re.search("<doc-number>(.*?)</doc-number>", line).group(1)
                         if line.startswith("<date"):
-                            app_date = re.search(
-                                "<date>(.*?)</date>", line).group(1)
+                            app_date = re.search("<date>(.*?)</date>", line).group(1)
                             if app_date[6:] != "00":
-                                app_date = app_date[:4]+'-' + \
-                                    app_date[4:6]+'-' + app_date[6:]
+                                app_date = app_date[:4]+'-' + app_date[4:6]+'-' + app_date[6:]
                             else:
-                                app_date = app_date[:4] + \
-                                    '-'+appd_ate[4:6]+'-'+'01'
+                                app_date = app_date[:4] + '-'+appd_ate[4:6]+'-'+'01'
                         if line.startswith(" sequence"):
                             kind = re.search('kind="(.*?)"', line).group(1)
                         if line.startswith("<id"):
-                            priority_id = re.search(
-                                "<id>(>*?)<id>", line).group(1)
+                            priority_id = re.search("<id>(>*?)<id>", line).group(1)
                         if line.startswith("<priority-doc-requested"):
-                            priority_requested = re.search(
-                                "<priority-doc-requested>(.*?)</priority-doc-requested", line).group(1)
+                            priority_requested = re.search("<priority-doc-requested>(.*?)</priority-doc-requested", line).group(1)
                     # priority_id and priority_requested cant be found
                     for_priority[app_id] = [id_generator(), patent_id, sequence, kind, app_num, app_date, country]
                     sequence += 1
@@ -1276,16 +1165,13 @@ def parse_patents(xml_dir, csv_dir):
                 us_term_extension = 'NULL'
                 for line in us_term_of_grant_temp:
                     if line.startswith('<lapse-of-patent'):
-                        lapse_of_patent = re.search(
-                            '<lapse-of-patent>(.*?)</lapse-of-patent>', line).group(1)
+                        lapse_of_patent = re.search('<lapse-of-patent>(.*?)</lapse-of-patent>', line).group(1)
                     if line.startswith('<text'):
                         text = re.search('<text>(.*?)</text>', line).group(1)
                     if line.startswith('<length-of-grant'):
-                        length_of_grant = re.search(
-                            '<length-of-grant>(.*?)</length-of-grant>', line).group(1)
+                        length_of_grant = re.search('<length-of-grant>(.*?)</length-of-grant>', line).group(1)
                     if line.startswith('<us-term-extension'):
-                        us_term_extension = re.search(
-                            '<us-term-extension>(.*?)</us-term-extension>', line).group(1)
+                        us_term_extension = re.search('<us-term-extension>(.*?)</us-term-extension>', line).group(1)
                 us_term_of_grant[app_id] = [id_generator(), patent_id, lapse_of_patent, "NULL",
                                             text, length_of_grant, us_term_extension]
 
@@ -1296,13 +1182,11 @@ def parse_patents(xml_dir, csv_dir):
                 rel_id = None
                 kind = None
                 date_102 = None
-                publishing = avail_fields["pct-or-regional-publishing-data"].split(
-                    "\n")
+                publishing = avail_fields["pct-or-regional-publishing-data"].split("\n")
                 for line in publishing:
                     try:
                         if line.startswith("<doc-number"):
-                            rel_id = re.search(
-                                "<doc-number>(.*?)</doc-number>", line).group(1)
+                            rel_id = re.search("<doc-number>(.*?)</doc-number>", line).group(1)
                     except:
                         print "Publishing data lacks docno"
                     if line.startswith('<kind'):
@@ -1314,8 +1198,7 @@ def parse_patents(xml_dir, csv_dir):
                         else:
                             date = date[:4]+'-' + date[4:6]+'-'+'01'
                     if line.startswith('<country'):
-                        country = re.search(
-                            '<country>(.*?)</country>', line).group(1)
+                        country = re.search('<country>(.*?)</country>', line).group(1)
                 pct_data[app_id] = [id_generator(), patent_id, rel_id, date, None, country, kind, "wo_grant", None]
 
             if "pct-or-regional-filing-data" in avail_fields:
@@ -1325,8 +1208,7 @@ def parse_patents(xml_dir, csv_dir):
                 country = None
                 kind = None
                 date_371 = None
-                pct = avail_fields["pct-or-regional-filing-data"].split(
-                    "<us-371c124-date")
+                pct = avail_fields["pct-or-regional-filing-data"].split("<us-371c124-date")
                 # split on us_371 date, because there are two date lines
                 try:
                     pct_info = pct[0].split("\n")
@@ -1347,8 +1229,7 @@ def parse_patents(xml_dir, csv_dir):
                         else:
                             date = date[:4]+'-' + date[4:6]+'-'+'01'
                     if line.startswith('<country'):
-                        country = re.search(
-                            '<country>(.*?)</country>', line).group(1)
+                        country = re.search('<country>(.*?)</country>', line).group(1)
                 for line in info_371:
                     if line.startswith('<date'):
                         date3 = re.search('<date>(.*?)</date>', line).group(1)
@@ -1368,11 +1249,9 @@ def parse_patents(xml_dir, csv_dir):
                 for line in figures:
                     try:
                         if line.startswith('<number-of-drawing-sheets'):
-                            sheets = re.search(
-                                '<number-of-drawing-sheets>(.*?)</number-of-drawing-sheets>', line).group(1)
+                            sheets = re.search('<number-of-drawing-sheets>(.*?)</number-of-drawing-sheets>', line).group(1)
                         if line.startswith('<number-of-figures'):
-                            figs = re.search(
-                                '<number-of-figures>(.*?)</number-of-figures>', line).group(1)
+                            figs = re.search('<number-of-figures>(.*?)</number-of-figures>', line).group(1)
                     except:
                         print "Missing field from figures"
                 figure_data[app_id] = [id_generator(), patent_id, figs, sheets]
@@ -1383,11 +1262,9 @@ def parse_patents(xml_dir, csv_dir):
                 for line in botanic:
                     try:
                         if line.startswith("<latin-name"):
-                            latin_name = re.search(
-                                '<latin-name>(.*?)</latin-name>', line).group(1)
+                            latin_name = re.search('<latin-name>(.*?)</latin-name>', line).group(1)
                         if line.startswith("<variety"):
-                            variety = re.search(
-                                "<variety>(.*?)</variety>", line).group(1)
+                            variety = re.search("<variety>(.*?)</variety>", line).group(1)
                     except:
                         print "Problem with botanic"
                 botanic_data[app_id] = [id_generator(), patent_id, appnum, latin_name, variety]
@@ -1488,8 +1365,7 @@ def parse_patents(xml_dir, csv_dir):
                     first = v[0]
                     second = v[1]
                     third = v[2]
-                    second = [piece.encode('utf-8', 'ignore')
-                              for piece in second]
+                    second = [piece.encode('utf-8', 'ignore') for piece in second]
                     second = "".join(second)
                     value = []
                     value.append(first)
@@ -1511,8 +1387,7 @@ def parse_patents(xml_dir, csv_dir):
                     dd_pat_id = v[0]
                     dd_len = v[2]
                     dd_text = v[1]
-                    dd_text = [piece.encode('utf-8', 'ignore')
-                               for piece in dd_text]
+                    dd_text = [piece.encode('utf-8', 'ignore') for piece in dd_text]
                     dd_text = "".join(dd_text)
                     value = []
                     value.append(dd_pat_id)
