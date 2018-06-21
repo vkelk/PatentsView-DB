@@ -290,6 +290,7 @@ def parse_patents(xml_dir, csv_dir):
                 else:
                     docno = num
                 # patent_id = docno
+                application['number'] = docno
             except Exception:
                 logger.warning('Failed at publication-reference for %s', docno)
                 logger.exception('message')
@@ -299,6 +300,7 @@ def parse_patents(xml_dir, csv_dir):
                 for_abst = avail_fields['abstract']
                 split_lines = for_abst.split("\n")
                 abst = re.search('">(.*?)</p', split_lines[1]).group(1)
+                application['abstract'] = abst
             except Exception:
                 pass
 
@@ -309,7 +311,7 @@ def parse_patents(xml_dir, csv_dir):
                 if title == '':
                     text = avail_fields['invention-title']
                     title = text[text.find('>')+1:text.rfind('<')]
-                    new_title[patent_id] = title
+                application['title'] = title
 
             try:
                 series_code = "NULL"
@@ -325,8 +327,10 @@ def parse_patents(xml_dir, csv_dir):
                     if line.startswith("<doc-number"):
                         appnum = re.search('<doc-number>(.*?)</doc-number>', line).group(1)
                         app_id = appnum
+                        application['app_id'] = app_id
                     if line.startswith("<country"):
                         appcountry = re.search('<country>(.*?)</country>', line).group(1)
+                        application['country'] = appcountry
                     if line.startswith("<date"):
                         appdate = re.search('<date>(.*?)</date>', line).group(1)
                         if appdate[6:] != "00":
@@ -334,38 +338,20 @@ def parse_patents(xml_dir, csv_dir):
                         else:
                             appdate = appdate[:4]+'-'+appdate[4:6]+'-'+'01'
                             year = appdate[:4]
+                        application['date'] = appdate
                     if line.startswith(" appl-type"):
                         apptype = re.search('"(.*?)"', line).group(1)
-                # modeled on the 2005 approach because apptype can be none in 2005, amking the 2002 approach not work
+                        application['type'] = apptype
+                # modeled on the 2005 approach because apptype can be none in 2005, making the 2002 approach not work
                 # but using the full application number as done in 2005
-                application[app_id] = [appdate[:4]+"/"+appnum, patent_id, series_code, appnum,
-                                       patcountry, appdate, series_code+"/"+appnum[2:], appnum, series_code]
+                application['id'] = issdate[:4] + "/" + appnum
             except Exception:
-                pass
-
-            try:
-                numclaims = 0
-                if 'number-of-claims' in avail_fields:
-                    no_claims = avail_fields['number-of-claims'].split("\n")
-                    for line in no_claims:
-                        numclaims = re.search('>(.*?)</', line).group(1)
-
-            except Exception:
-                pass
-
-            if "us-exemplary-claim" in avail_fields:
-                # if there is only one claim make list for processing
-                if type(avail_fields["us-exemplary-claim"]) == str:
-                    claim = [avail_fields["us-exemplary-claim"]]
-                else:
-                    claim = avail_fields["us-exemplary-claim"]
-                exemplary_claims = []
-                for item in claim:
-                    exemplary_claims.append(
-                        re.search(">(.*?)<", item).group(1))
+                print(type(e), str(e))
+                raise
 
             # claims_list = []
             try:
+                numclaims = 0
                 claimsdata = re.search('<claims.*?>(.*?)</claims>', i, re.DOTALL).group(1)
                 claim_number = re.finditer('<claim id(.*?)>', claimsdata, re.DOTALL)
                 claims_iter = re.finditer('<claim.*?>(.*?)</claim>', claimsdata, re.DOTALL)
@@ -395,6 +381,8 @@ def parse_patents(xml_dir, csv_dir):
                     claim_num = claim_num.group(1)
                     clnum = re.search('num="(.*?)"', claim_num).group(1)
                     claim_num_info.append(clnum)
+                numclaims = len(claim_num_info)
+
                 for i in range(len(claim_info)):
                     # this adds a flag for whether this is an exemplary claim (can be several)
                     exemplary = False
@@ -404,8 +392,12 @@ def parse_patents(xml_dir, csv_dir):
                     # this would be clearer using a dictionary. it is patent id, text, dependnecy, number
                     claims[app_id] = [id_generator(), patent_id, claim_info[i][0],
                                       claim_info[i][1], str(claim_num_info[i]), exemplary]
-            except Exception:
-                pass
+            except Exception as e:
+                print(type(e), str(e))
+                raise
+            application['num_claims'] = numclaims
+            print(application)
+            exit()
 
             # specially check this
             try:
