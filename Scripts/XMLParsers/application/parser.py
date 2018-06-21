@@ -1,14 +1,21 @@
 import codecs
 import copy
 import csv
+import inspect
+import logging
 import os
 import random
 import re
 import string
+import sys
 
 from bs4 import BeautifulSoup as bs
 import HTMLParser
-#import htmlentitydefs
+# import htmlentitydefs
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+logger = logging.getLogger(__name__)
 
 
 def prepare_output_dir(csv_dir):
@@ -171,11 +178,11 @@ def parse_patents(xml_dir, csv_dir):
     defs['apos'] = "'"
     # find the entities file
     try:
-        entities = open(
-            'D:/DataBaseUpdate/Code/PatentsView-DB/Scripts/Raw_Data_Parsers/uspto_parsers/htmlentities').read().split('\n')
+        htmlentities_path = os.path.join(parentdir, 'htmlentities.txt')
+        print(htmlentities_path)
+        entities = open(htmlentities_path).read().split('\n')
     except:  # slighly hacky for running separately to debug
-        entities = open('uspto_parsers/htmlentities').read().split('\n')
-        pass
+        logger.warning('Cannot open htmlentities')
     for e in entities:
         try:
             first = re.sub('\s+|\"|;|&', '', e[3:15])
@@ -213,7 +220,7 @@ def parse_patents(xml_dir, csv_dir):
                  "priority-claim"]
 
     numi = 0
-
+    
     # Rawlocation, mainclass and subclass should write after all else is done to prevent duplicate values
     rawlocation = {}
     mainclassdata = {}
@@ -250,77 +257,33 @@ def parse_patents(xml_dir, csv_dir):
                         results = k.split(j+">")
                         items.append(results[0])
                     avail_fields[j] = items
-            # special log group parsing for strangely named fields
-            try:
-                desc = i.split("DETDESC")
-                avail_fields["DETDESC"] = desc[1]
-            except:
-                pass
-
-            try:
-                brf = i.split("BRFSUM")
-                avail_fields["BRFSUM"] = brf[1]
-            except:
-                pass
-            try:
-                relapp = i.split("RELAPP")
-                avail_fields["RELAPP"] = relapp[1]
-            except:
-                pass
-
-            try:
-                figures = i.split("<figures>")
-                figures = figures[1].split("</figures>")[0]
-                avail_fields["figures"] = figures
-            except:
-                pass
-
-            try:
-                sir_tag = re.search('us-sir-flag sir-text="(.*?)"', i).group(1)
-            except:
-                pass
-            rule_47 = 0
-            if "rule-47-flag" in i:
-                rule_47 = 1
 
             # Create containers based on existing Berkeley DB schema (not all are currently used - possible compatibility issues)
             application = {}
+            application_assignee = {}
+            application_inventor = {}
             assignee = {}
-            claims = {}
-            foreigncitation = {}
+            claim = {}
+            cpc_current = {}
+            cpc_group = {}
+            cpc_subgroup = {}
+            cpc_subsection = {}
             inventor = {}
-            ipcr = {}
-            lawyer = {}
             location = {}
             location_assignee = {}
             location_inventor = {}
-            otherreference = {}
-            patentdata = {}
-            patent_assignee = {}
-            patent_inventor = {}
-            patent_lawyer = {}
+            mainclass = {}
+            mainclass_current = {}
             rawassignee = {}
             rawinventor = {}
-            rawlawyer = {}
-            usappcitation = {}
-            uspatentcitation = {}
+            rawlocation = {}
+            subclass = {}
+            subclass_current = {}
+            temporary_update = {}
             uspc = {}
-            usreldoc = {}
-            examiner = {}
-            non_inventor_applicant = {}
-            us_term_of_grant = {}
-            for_priority = {}
-            draw_desc_text = {}
-            brf_sum_text = {}
-            detail_desc_text = {}
-            rel_app_text = {}
-            regularcitation = {}
-            pct_data = {}
-            botanic_data = {}
-            figure_data = {}
-            new_title = {}
+            uspc_current = {}
 
-            ###                PARSERS FOR LOGICAL GROUPS                  ###
+            #  PARSERS FOR LOGICAL GROUPS
             try:
                 publication = avail_fields['publication-reference'].split("\n")
                 for line in publication:

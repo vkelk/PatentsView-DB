@@ -3,4 +3,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-XML_DIR = os.getenv('XML_DIR', './xml_dir')
+MAIN_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir))
+APP_XMLDIR = os.path.join(MAIN_DIR, 'data_dirs/xmls/a')
+APP_CSVDIR = os.path.join(MAIN_DIR, 'data_dirs/csvs/a')
+GRANT_XMLDIR = os.path.join(MAIN_DIR, 'data_dirs/xmls/g')
+GRANT_CSVDIR = os.path.join(MAIN_DIR, 'data_dirs/csvs/g')
