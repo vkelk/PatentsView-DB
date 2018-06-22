@@ -1,10 +1,12 @@
 import codecs
 import copy
 import csv
+from datetime import datetime
 from html.parser import HTMLParser
 import inspect
 import logging
 import os
+from pprint import pprint
 import random
 import re
 import string
@@ -237,7 +239,10 @@ def parse_patents(xml_dir, csv_dir):
 
             # Create containers based on existing Berkeley DB schema 
             # (not all are currently used - possible compatibility issues)
-            application = {}
+            application = {
+                'filename': d
+            }
+
             application_assignee = {}
             application_inventor = {}
             assignee = {}
@@ -278,12 +283,15 @@ def parse_patents(xml_dir, csv_dir):
                         else:
                             issdate = issdate[:4] + '-' + issdate[4:6] + '-' + '01'
                             year = issdate[:4]
+                        application['date'] = datetime.strptime(issdate, '%Y-%m-%d').date()
 
                 num = re.findall('\d+', docno)
                 num = num[0]  # turns it from list to string
                 if num[0].startswith("0"):
                     num = num[1:]
                     let = re.findall('[a-zA-Z]+', docno)
+                else:
+                    let = None
                 if let:
                     let = let[0]  # list to string
                     docno = let + num
@@ -291,7 +299,8 @@ def parse_patents(xml_dir, csv_dir):
                     docno = num
                 # patent_id = docno
                 application['number'] = docno
-            except Exception:
+            except Exception as e:
+                print(type(e), str(e))
                 logger.warning('Failed at publication-reference for %s', docno)
                 logger.exception('message')
 
@@ -301,8 +310,8 @@ def parse_patents(xml_dir, csv_dir):
                 split_lines = for_abst.split("\n")
                 abst = re.search('">(.*?)</p', split_lines[1]).group(1)
                 application['abstract'] = abst
-            except Exception:
-                pass
+            except Exception as e:
+                print(type(e), str(e))
 
             # try:
             title = None
@@ -314,11 +323,11 @@ def parse_patents(xml_dir, csv_dir):
                 application['title'] = title
 
             try:
-                series_code = "NULL"
+                series_code = None
                 app_series_code = avail_fields['us-application-series-code']
                 series_code = re.search(">(.*?)</", app_series_code).group(1)
-            except Exception:
-                pass
+            except Exception as e:
+                print(type(e), str(e))
 
             try:
                 application_list = avail_fields['application-reference'].split("\n")
@@ -338,18 +347,17 @@ def parse_patents(xml_dir, csv_dir):
                         else:
                             appdate = appdate[:4]+'-'+appdate[4:6]+'-'+'01'
                             year = appdate[:4]
-                        application['date'] = appdate
                     if line.startswith(" appl-type"):
                         apptype = re.search('"(.*?)"', line).group(1)
                         application['type'] = apptype
                 # modeled on the 2005 approach because apptype can be none in 2005, making the 2002 approach not work
                 # but using the full application number as done in 2005
-                application['id'] = issdate[:4] + "/" + appnum
+                application['id'] = issdate[:4] + "/" + application['number']
             except Exception:
                 print(type(e), str(e))
                 raise
 
-            # claims_list = []
+            claims_list = []
             try:
                 numclaims = 0
                 claimsdata = re.search('<claims.*?>(.*?)</claims>', i, re.DOTALL).group(1)
@@ -384,22 +392,24 @@ def parse_patents(xml_dir, csv_dir):
                 numclaims = len(claim_num_info)
 
                 for i in range(len(claim_info)):
-                    # this adds a flag for whether this is an exemplary claim (can be several)
-                    exemplary = False
-                    # strip leading zeros
-                    if claim_num_info[i].lstrip("0") in exemplary_claims:
-                        exemplary = True
-                    # this would be clearer using a dictionary. it is patent id, text, dependnecy, number
-                    claims[app_id] = [id_generator(), patent_id, claim_info[i][0],
-                                      claim_info[i][1], str(claim_num_info[i]), exemplary]
+                    claim = {
+                        'uuid': id_generator(),
+                        'application_id': application['id'],
+                        'app_id': application['app_id'],
+                        'text': claim_info[i][0],
+                        'dependent': claim_info[i][1],
+                        'sequence': claim_num_info[i]
+                    }
+                    # claims[app_id] = [id_generator(), patent_id, claim_info[i][0],
+                                    #   claim_info[i][1], str(claim_num_info[i]), exemplary]
+                    claims_list.append(claim)
             except Exception as e:
                 print(type(e), str(e))
                 raise
             application['num_claims'] = numclaims
-            print(application)
-            exit()
 
             # specially check this
+            cpc_current_list = []
             try:
                 if 'classification-ipcr' in avail_fields:
                     ipcr_classification = avail_fields["classification-ipcr"]
@@ -410,18 +420,18 @@ def parse_patents(xml_dir, csv_dir):
                     ipcr_classification = [ipcr_classification]
                 num = 0
                 for j in ipcr_classification:
-                    class_level = "NULL"
-                    section = "NULL"
-                    mainclass = "NULL"
-                    subclass = "NULL"
-                    group = "NULL"
-                    subgroup = "NULL"
-                    symbol_position = "NULL"
-                    classification_value = "NULL"
-                    classification_status = "NULL"
-                    classification_source = "NULL"
-                    action_date = ""
-                    ipcrversion = ""
+                    class_level = None
+                    section = None
+                    mainclass = None
+                    subclass = None
+                    group = None
+                    subgroup = None
+                    symbol_position = None
+                    classification_value = None
+                    classification_status = None
+                    classification_source = None
+                    action_date = None
+                    ipcrversion = None
                     ipcr_fields = j.split("\n")
                     for line in ipcr_fields:
                         if line.startswith("<classification-level"):
@@ -439,9 +449,9 @@ def parse_patents(xml_dir, csv_dir):
                         if line.startswith("<ipc-version-indicator"):
                             ipcrversion = re.search('<date>(.*?)</date>', line).group(1)
                             if ipcrversion[6:] != "00":
-                                ipcrversion = ipcrversion[:4]+'-' + ipcrversion[4:6]+'-'+ipcrversion[6:]
+                                ipcrversion = ipcrversion[:4]+'-' + ipcrversion[4:6]+ '-' + ipcrversion[6:]
                             else:
-                                ipcrversion = ipcrversion[:4] + '-'+ipcrversion[4:6]+'-'+'01'
+                                ipcrversion = ipcrversion[:4] + '-' + ipcrversion[4:6]+'-'+'01'
                         if line.startswith("<symbol-position"):
                             symbol_position = re.search('<symbol-position>(.*?)</symbol-position>', line).group(1)
                         if line.startswith("<classification-value"):
@@ -460,15 +470,32 @@ def parse_patents(xml_dir, csv_dir):
                             else:
                                 action_date = action_date[:4] + '-'+action_date[4:6]+'-'+'01'
                     # if all the valu[es are "NULL", set will have len(1) and we can ignore it. This is bad
-                    values = set(
-                        [section, mainclass, subclass, group, subgroup])
+                    values = set([section, mainclass, subclass, group, subgroup])
+                    if classification_value == 'I':
+                        cpc_category = 'invention'
+                    elif classification_value == 'A':
+                        cpc_category = 'addition'
+                    else:
+                        cpc_category = None
                     if len(values) > 1:  # get rid of the situation in which there is no data
-                        ipcr[app_id] = [id_generator(), patent_id, class_level, section, mainclass, subclass, group, 
-                                        subgroup, symbol_position, classification_value, classification_status, 
-                                        classification_source, action_date, ipcrversion, str(num)]
+                        cpc_current = {
+                            'uuid': id_generator(),
+                            'application_id': application['id'],
+                            'app_id': application['app_id'],
+                            'section_id': section,
+                            'subsection_id': section + mainclass,
+                            'group_id': section + mainclass + subclass,
+                            'subgroup_id': section + mainclass + subclass + group,
+                            'category': cpc_category,
+                            'sequence': str(num),
+                        }
+                        cpc_current_list.append(cpc_current)
+                        # ipcr[app_id] = [id_generator(), patent_id, class_level, section, mainclass, subclass, group, 
+                                        # subgroup, symbol_position, classification_value, classification_status, 
+                                        # classification_source, action_date, ipcrversion, str(num)]
                     num += 1
-            except Exception:
-                pass
+            except Exception as e:
+                print(type(e), str(e))
 
             # data = {'class': main[0][:3].replace(' ', ''),
                 # 'subclass': crossrefsub}
