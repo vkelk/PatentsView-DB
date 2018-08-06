@@ -1341,7 +1341,7 @@ def parse_patents(xml_dir, csv_dir):
                 non_inventor_applicantfile.writerow([k]+v)
 
             draw_desc_textfile = csv.writer(
-                open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'a'), delimiter='\t')
+                open(os.path.join(csv_dir, 'draw_desc_text.csv'), 'a', encoding="utf-8"), delimiter='\t')
             for k, v in draw_desc_text.items():
                 try:
                     draw_desc_textfile.writerow([k]+v)
@@ -1349,7 +1349,7 @@ def parse_patents(xml_dir, csv_dir):
                     first = v[0]
                     second = v[1]
                     third = v[2]
-                    second = [piece.encode('utf-8', 'ignore') for piece in second]
+                    second = [piece.encode('utf-8', 'ignore').decode() for piece in second]
                     second = "".join(second)
                     value = []
                     value.append(first)
@@ -1363,7 +1363,7 @@ def parse_patents(xml_dir, csv_dir):
                 brf_sum_textfile.writerow([k]+v)
 
             detail_desc_textfile = csv.writer(
-                open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'a'), delimiter='\t')
+                open(os.path.join(csv_dir, 'detail_desc_text.csv'), 'a', encoding="utf-8"), delimiter='\t')
             for k, v in detail_desc_text.items():
                 try:
                     detail_desc_textfile.writerow([k]+v)
@@ -1371,7 +1371,7 @@ def parse_patents(xml_dir, csv_dir):
                     dd_pat_id = v[0]
                     dd_len = v[2]
                     dd_text = v[1]
-                    dd_text = [piece.encode('utf-8', 'ignore') for piece in dd_text]
+                    dd_text = [piece.encode('utf-8', 'ignore').decode() for piece in dd_text]
                     dd_text = "".join(dd_text)
                     value = []
                     value.append(dd_pat_id)
