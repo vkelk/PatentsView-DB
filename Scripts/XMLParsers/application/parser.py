@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup as bs
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 logger = logging.getLogger(__name__)
+_char = re.compile(r'&(\w+?);')
 
 
 def prepare_output_dir(csv_dir):
@@ -147,9 +148,18 @@ def prepare_output_dir(csv_dir):
     uspc_current_file.close()
 
 
-def parse_patents(xml_dir, csv_dir):
-    _char = re.compile(r'&(\w+?);')
+def get_doc_from_file(file_location, _char_unescape):
+    infile = open(file_location, 'rb').read().decode('utf-8', 'ignore').replace('&angst', '&aring')
+    # infile = infile.encode('utf-8', 'ignore')
+    infile = _char.sub(_char_unescape, infile)
+    # infile = h.unescape(infile).encode('utf-8')
+    infile = infile.split('<!DOCTYPE')
+    del infile[0]
+    for i in infile:
+        yield i
 
+
+def parse_patents(xml_dir, csv_dir):
     # Generate some extra HTML entities
     # defs=htmlentitydefs.entitydefs
     defs = {}
@@ -198,7 +208,7 @@ def parse_patents(xml_dir, csv_dir):
                  "priority-claim"]
 
     numi = 0
-    
+
     # Rawlocation, mainclass and subclass should write after all else is done to prevent duplicate values
     rawlocation = {}
     mainclassdata = {}
@@ -207,16 +217,18 @@ def parse_patents(xml_dir, csv_dir):
     # diri = [d for d in diri if d.startswith("ipg" + str(year))]
     for d in diri:
         logger.info('Starting with file %s', d)
-        infile = open(xml_dir+d, 'rb').read().decode('utf-8', 'ignore').replace('&angst', '&aring')
-        # infile = infile.encode('utf-8', 'ignore')
-        infile = _char.sub(_char_unescape, infile)
-        # infile = h.unescape(infile).encode('utf-8')
-        infile = infile.split('<!DOCTYPE')
-        del infile[0]
+        file_location = xml_dir + d
 
-        numi += len(infile)
+        # infile = open(file_location, 'rb').read().decode('utf-8', 'ignore').replace('&angst', '&aring')
+        # # infile = infile.encode('utf-8', 'ignore')
+        # infile = _char.sub(_char_unescape, infile)
+        # # infile = h.unescape(infile).encode('utf-8')
+        # infile = infile.split('<!DOCTYPE')
+        # del infile[0]
 
-        for i in infile:
+        # numi += len(infile)
+
+        for i in get_doc_from_file(file_location, _char_unescape):
             avail_fields = {}
             # parser for logical groups
             for j in loggroups:
@@ -1332,6 +1344,7 @@ def parse_patents(xml_dir, csv_dir):
                 open(os.path.join(csv_dir, 'figures.csv'), 'ab'), delimiter='\t')
             for k, v in figure_data.items():
                 figuresfile.writerow([k]+v)
+            numi += 1
 
     rawlocfile = csv.writer(
         open(os.path.join(csv_dir, 'rawlocation.csv'), 'ab'), delimiter='\t')
