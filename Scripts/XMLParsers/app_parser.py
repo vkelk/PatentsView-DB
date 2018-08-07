@@ -352,7 +352,6 @@ def parse_app(case, app_id, filename):
         print_children(data_application.find('us-parties/us-applicants'), 3)
         applicants_element_list = data_application.findall('us-parties/us-applicants/us-applicant')
         applicants_list = []
-        exit()
         for applicant_element in applicants_element_list:
             loc_idd = id_generator()
             applicant = {
@@ -364,21 +363,23 @@ def parse_app(case, app_id, filename):
                 'name_first': get_text_or_none(applicant_element, 'addressbook/first-name/text()'),
                 'name_last': get_text_or_none(applicant_element, 'addressbook/last-name/text()'),
                 'organization': get_text_or_none(applicant_element, 'addressbook/orgname/text()'),
-                'sequence': int(inventor_element.attrib['sequence']),
-                'designation': None,
-                'applicant_type': None,
+                'sequence': int(applicant_element.attrib['sequence']),
+                'designation': applicant_element.attrib['designation'],
+                'applicant_type': applicant_element.attrib['app-type'],
             }
-            applicants_list.append(rawinventor)
+            applicants_list.append(applicant)
 
             rawlocation = {
                 'id': id_generator(),
                 'location_id': loc_idd,
-                'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
-                'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
-                'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
-                'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+                'city': get_text_or_none(applicant_element, 'addressbook/address/city/text()'),
+                'state': get_text_or_none(applicant_element, 'addressbook/address/state/text()'),
+                'country': get_text_or_none(applicant_element, 'addressbook/address/country/text()'),
+                'country_transformed': get_text_or_none(applicant_element, 'addressbook/address/country/text()'),
             }
             rawlocation_list.append(rawlocation)
+        print(applicants_list)
+        exit()
 
     dbc = Db()
     start_time = time.time()
@@ -389,7 +390,7 @@ def parse_app(case, app_id, filename):
     parse_description()
     parse_assignees()
     parse_inventors()
-    parse_non_inventors()
+    parse_applicants()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
     #     executor.submit(parse_case_files)
