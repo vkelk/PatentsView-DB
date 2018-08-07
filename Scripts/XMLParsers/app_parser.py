@@ -349,7 +349,7 @@ def parse_app(case, app_id, filename):
             rawlocation_list.append(rawlocation)
     
     def parse_applicants():
-        print_children(data_application.find('us-parties/us-applicants'), 3)
+        # print_children(data_application.find('us-parties/us-applicants'), 3)
         applicants_element_list = data_application.findall('us-parties/us-applicants/us-applicant')
         applicants_list = []
         for applicant_element in applicants_element_list:
@@ -378,8 +378,6 @@ def parse_app(case, app_id, filename):
                 'country_transformed': get_text_or_none(applicant_element, 'addressbook/address/country/text()'),
             }
             rawlocation_list.append(rawlocation)
-        print(applicants_list)
-        exit()
 
     dbc = Db()
     start_time = time.time()
