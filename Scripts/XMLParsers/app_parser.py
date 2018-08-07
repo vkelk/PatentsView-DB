@@ -3,9 +3,10 @@ import concurrent.futures as cf
 import logging
 import logging.config
 import os
+import random
 import re
 import requests
-# from shutil import move
+import string
 import sys
 import time
 import zipfile
@@ -25,6 +26,10 @@ def create_logger():
     log_file = LOG_DIR + 'tm_parser_' + str(date) + '.log'
     logging.config.fileConfig('log.ini', defaults={'logfilename': log_file})
     return logging.getLogger(__name__)
+
+
+def id_generator(size=25, chars=string.ascii_lowercase + string.digits):
+        return ''.join(random.choice(chars) for _ in range(size))
 
 
 def download_html(url):
@@ -61,6 +66,8 @@ def get_text_or_none(element, item_name):
 
 
 def print_children(element, level=0):
+    if element is None:
+        return
     print('* Content of', element)
     print(element.attrib)
     l = []
@@ -92,6 +99,7 @@ def clean_file(raw_file):
     if settings.APP_XMLDIR not in raw_file:
             raw_file = os.path.join(settings.APP_XMLDIR, raw_file)
     new_file = raw_file[:-4] + '_clean.xml'
+    file_already_cleaned = False
     try:
         with open(raw_file, 'r+') as f:
             with open(new_file, 'w') as new_f:
@@ -170,6 +178,7 @@ def parse_file(filename, file_id):
         file_start_time = time.time()
         logger.info('Parsing file %s' % filename)
         context = etree.iterparse(inputfile, events=('end',), tag='us-patent-application')
+        app_counter = 0
         for event, case in context:
             data_application = case.find('us-bibliographic-data-application')
             app_ref = data_application.find('application-reference')
@@ -196,8 +205,10 @@ def parse_file(filename, file_id):
             else:
                 logger.info('Processing new app_id %s', app_id)
                 parse_app(case, app_id, filename)
-            sys.exit()
+            app_counter += 1
             case.clear()
+            if app_counter == 5:
+                sys.exit()
     dbc.file_update_status(file_id, 'finished')
     os.remove(filename)
     logger.info('Finished parsing file %s in [%s sec]', filename, time.time() - file_start_time)
@@ -208,7 +219,8 @@ def parse_app(case, app_id, filename):
     app_ref = data_application.find('application-reference')
     pub_ref = data_application.find('publication-reference')
     claims_element_list = case.findall('claims/claim')
-    print_children(case, 5)
+    # print_children(data_application.find('us-parties'), 3)
+    rawlocation_list = []
 
     def parse_application():
         dbc = Db()
@@ -239,12 +251,145 @@ def parse_app(case, app_id, filename):
             'num_claims': len(claims_element_list),
             'filename': filename.split('\\')[-1],
         }
-        print(application)
+        return application
+
+    def parse_claims():
+        dbc = Db()
+        claims_list = []
+        for claim_element in claims_element_list:
+            sequence = claim_element.attrib['num']
+            claim_text_full = etree.tostring(claim_element).decode()
+            dependent = re.search('<claim-ref idref="CLM-(\d+)">', claim_text_full)
+            dependent = int(dependent.group(1)) if dependent is not None else None
+            text = re.sub('<.*?>|</.*?>', '', claim_text_full)
+            text = re.sub('[\n\t\r\f]+', '', text)
+            text = re.sub('^\d+\.\s+', '', text)
+            text = re.sub('\s+', ' ', text)
+            claim = {
+                'uuid': id_generator(),
+                'application_id': application['id'],
+                'app_id': application['app_id'],
+                'text': text,
+                'dependent': dependent,
+                'sequence': sequence
+            }
+            claims_list.append(claim)
+        # print(claims_list)
+
+    def parse_description():
+        dbc = Db()
+        description_element = case.find('description')
+        description_text_full = etree.tostring(description_element).decode()
+        text = re.sub('<.*?>|</.*?>', '', description_text_full)
+        text = re.sub('[\n\t\r\f]+', ' ', text)
+        text = re.sub('^\d+\.\s+', '', text)
+        text = re.sub('\s+', ' ', text)
+        description = {
+            'app_id': app_id,
+            'uuid': id_generator(),
+            'text': text
+        }
+
+    def parse_assignees():
+        assignees_element_list = data_application.findall('assignees/assignee')
+        rawassignee_list = []
+        for assignee_element in assignees_element_list:
+
+            loc_idd = id_generator()
+            rawassignee = {
+                'uuid': id_generator(),
+                'application_id': application['id'],
+                'app_id': app_id,
+                'assignee_id': None,
+                'rawlocation_id': loc_idd,
+                'type': get_text_or_none(assignee_element, 'addressbook/role/text()'),
+                'name_first': get_text_or_none(assignee_element, 'addressbook/first-name/text()'),
+                'name_last': get_text_or_none(assignee_element, 'addressbook/last-name/text()'),
+                'organization': get_text_or_none(assignee_element, 'addressbook/orgname/text()'),
+                'sequence': None
+            }
+            rawassignee_list.append(rawassignee)
+
+            rawlocation = {
+                'id': id_generator(),
+                'location_id': loc_idd,
+                'city': get_text_or_none(assignee_element, 'addressbook/address/city/text()'),
+                'state': get_text_or_none(assignee_element, 'addressbook/address/state/text()'),
+                'country': get_text_or_none(assignee_element, 'addressbook/address/country/text()'),
+                'country_transformed': get_text_or_none(assignee_element, 'addressbook/address/country/text()'),
+            }
+            rawlocation_list.append(rawlocation)
     
+    def parse_inventors():
+        inventors_element_list = data_application.findall('us-parties/inventors/inventor')
+        rawinventors_list = []
+
+        for inventor_element in inventors_element_list:
+            loc_idd = id_generator()
+            rawinventor = {
+                'uuid': id_generator(),
+                'application_id': application['id'],
+                'app_id': app_id,
+                'inventor_id': None,
+                'rawlocation_id': loc_idd,
+                'name_first': get_text_or_none(inventor_element, 'addressbook/first-name/text()'),
+                'name_last': get_text_or_none(inventor_element, 'addressbook/last-name/text()'),
+                'sequence': int(inventor_element.attrib['sequence'])
+            }
+            rawinventors_list.append(rawinventor)
+
+            rawlocation = {
+                'id': id_generator(),
+                'location_id': loc_idd,
+                'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
+                'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
+                'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+                'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+            }
+            rawlocation_list.append(rawlocation)
+    
+    def parse_applicants():
+        print_children(data_application.find('us-parties/us-applicants'), 3)
+        applicants_element_list = data_application.findall('us-parties/us-applicants/us-applicant')
+        applicants_list = []
+        exit()
+        for applicant_element in applicants_element_list:
+            loc_idd = id_generator()
+            applicant = {
+                'uuid': id_generator(),
+                'application_id': application['id'],
+                'app_id': app_id,
+                'inventor_id': None,
+                'rawlocation_id': loc_idd,
+                'name_first': get_text_or_none(applicant_element, 'addressbook/first-name/text()'),
+                'name_last': get_text_or_none(applicant_element, 'addressbook/last-name/text()'),
+                'organization': get_text_or_none(applicant_element, 'addressbook/orgname/text()'),
+                'sequence': int(inventor_element.attrib['sequence']),
+                'designation': None,
+                'applicant_type': None,
+            }
+            applicants_list.append(rawinventor)
+
+            rawlocation = {
+                'id': id_generator(),
+                'location_id': loc_idd,
+                'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
+                'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
+                'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+                'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+            }
+            rawlocation_list.append(rawlocation)
+
     dbc = Db()
     start_time = time.time()
 
-    parse_application()
+    application = parse_application()
+    # print(application)
+    parse_claims()
+    parse_description()
+    parse_assignees()
+    parse_inventors()
+    parse_non_inventors()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
     #     executor.submit(parse_case_files)
@@ -280,7 +425,6 @@ def main_worker(file):
             xml_filename = file_check['filename']
         if settings.APP_XMLDIR not in xml_filename:
             xml_filename = os.path.join(settings.APP_XMLDIR, xml_filename)
-        clean_file(xml_filename)
         parse_file(xml_filename, file_check['id'])
     else:
         logger.info('File %s is already inserted into database.', file_check['filename'])
