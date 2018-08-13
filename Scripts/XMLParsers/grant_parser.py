@@ -12,18 +12,18 @@ import time
 import zipfile
 from lxml import etree, html
 
-from db_pgsql import Db_applications as Db
+from db_pgsql import Db_grants as Db
 import settings
 
 
-WORK_DIR = settings.APP_XMLDIR
+WORK_DIR = settings.GRANT_XMLDIR
 LOG_DIR = 'logs/'
-MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/application/redbook/fulltext/2018/'
+MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2018/'
 
 
 def create_logger():
     date = time.strftime('%Y-%m-%d')
-    log_file = LOG_DIR + 'app_parser_' + str(date) + '.log'
+    log_file = LOG_DIR + 'grant_parser_' + str(date) + '.log'
     logging.config.fileConfig('log.ini', defaults={'logfilename': log_file})
     return logging.getLogger(__name__)
 
@@ -96,8 +96,8 @@ def clean_file(raw_file):
     :return  null, creates list of files
     '''
     logger.info('Cleaning XML file')
-    if settings.APP_XMLDIR not in raw_file:
-            raw_file = os.path.join(settings.APP_XMLDIR, raw_file)
+    if settings.GRANT_XMLDIR not in raw_file:
+            raw_file = os.path.join(settings.GRANT_XMLDIR, raw_file)
     new_file = raw_file[:-4] + '_clean.xml'
     file_already_cleaned = False
     try:
@@ -122,7 +122,7 @@ def clean_file(raw_file):
 
 
 def download_file(url):
-    zip_filename = os.path.join(settings.APP_XMLDIR, url.split('/')[-1])
+    zip_filename = os.path.join(WORK_DIR, url.split('/')[-1])
     xml_filename = zip_filename.replace('zip', 'xml')
     if os.path.isfile(zip_filename) or os.path.isfile(xml_filename):
         logger.debug('File already exists.')
@@ -141,7 +141,7 @@ def download_file(url):
     if not os.path.isfile(xml_filename) and os.path.isfile(zip_filename):
         try:
             zip_ref = zipfile.ZipFile(zip_filename, 'r')
-            zip_ref.extractall(settings.APP_XMLDIR)
+            zip_ref.extractall(WORK_DIR)
             zip_ref.close()
             clean_file(xml_filename)
             os.remove(zip_filename)
@@ -173,15 +173,15 @@ def get_urls(main_url):
 def parse_file(filename, file_id):
     dbc = Db()
     if WORK_DIR not in filename:
-        filename = os.path.join(settings.APP_XMLDIR, filename)
+        filename = os.path.join(settings.GRANT_XMLDIR, filename)
     with open(filename, 'rb') as inputfile:
         file_start_time = time.time()
         logger.info('Parsing file %s' % filename)
-        context = etree.iterparse(inputfile, events=('end',), tag='us-patent-application')
+        context = etree.iterparse(inputfile, events=('end',), tag='us-patent-grant')
         app_counter = 0
         for event, case in context:
-            data_application = case.find('us-bibliographic-data-application')
-            app_ref = data_application.find('application-reference')
+            data_grant = case.find('us-bibliographic-data-grant')
+            app_ref = data_grant.find('application-reference')
             app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
             app_id_db = dbc.app_id_get(app_id, file_id)
             if app_id_db is not None:
@@ -204,7 +204,7 @@ def parse_file(filename, file_id):
                     parse_case(case, app_id, file_id)
             else:
                 logger.info('Processing new app_id %s', app_id)
-                parse_app(case, app_id, filename)
+                parse_grant(case, app_id, filename)
             app_counter += 1
             case.clear()
             if app_counter == 5:
@@ -214,42 +214,51 @@ def parse_file(filename, file_id):
     logger.info('Finished parsing file %s in [%s sec]', filename, time.time() - file_start_time)
 
 
-def parse_app(case, app_id, filename):
-    data_application = case.find('us-bibliographic-data-application')
-    app_ref = data_application.find('application-reference')
-    pub_ref = data_application.find('publication-reference')
+def parse_grant(case, app_id, filename):
+    data_grant = case.find('us-bibliographic-data-grant')
+    pub_ref = data_grant.find('publication-reference')
+    app_ref = data_grant.find('application-reference')
+    docno = get_text_or_none(pub_ref, 'document-id/doc-number/text()')
+    num = re.findall('\d+', docno)
+    num = num[0]  # turns it from list to string
+    if num[0].startswith("0"):
+        num = num[1:]
+        let = re.findall('[a-zA-Z]+', docno)
+    if let:
+        let = let[0]  # list to string
+        docno = let + num
+    else:
+        docno = num
+    patent_id = docno
     claims_element_list = case.findall('claims/claim')
-    # print_children(data_application.find('us-parties'), 3)
+    # print_children(data_grant.find('us-parties'), 3)
     rawlocation_list = []
 
     def parse_application():
         dbc = Db()
+        table_name = 'application_v2'
 
-        pub_date = get_text_or_none(pub_ref, 'document-id/date/text()')
-        if pub_date[6:] != "00":
-            pub_date = pub_date[:4] + '-' + pub_date[4:6] + '-' + pub_date[6:]
-            year = pub_date[:4]
+        app_date = get_text_or_none(app_ref, 'document-id/date/text()')
+        if app_date[6:] != "00":
+            app_date = app_date[:4] + '-' + app_date[4:6] + '-' + app_date[6:]
+            year = app_date[:4]
         else:
-            pub_date = pub_date[:4] + '-' + pub_date[4:6] + '-' + '01'
-            year = pub_date[:4]
+            app_date = app_date[:4] + '-' + app_date[4:6] + '-' + '01'
+            year = app_date[:4]
 
-        abstract_p_list = case.findall('abstract/p')
-        abstract = ''
-        for p in abstract_p_list:
-            abstract += get_text_or_none(p, 'text()')
+        series_code = get_text_or_none(data_grant, 'us-application-series-code/text()')
 
         application = {
-            'id': year + '/' + get_text_or_none(pub_ref, 'document-id/doc-number/text()'),
-            'type': app_ref.attrib['appl-type'],
-            'number': get_text_or_none(pub_ref, 'document-id/doc-number/text()'),
             'app_id': app_id,
+            'id': year + '/' + get_text_or_none(app_ref, 'document-id/doc-number/text()'),
+            'patent_id': patent_id,
+            'type': int(series_code),
+            'number': get_text_or_none(app_ref, 'document-id/doc-number/text()'),
             'country': get_text_or_none(app_ref, 'document-id/country/text()'),
-            'date': pub_date,
-            'abstract': abstract,
-            'title': get_text_or_none(case, 'us-bibliographic-data-application/invention-title/text()'),
-            'granted': None,
-            'num_claims': len(claims_element_list),
-            'filename': filename.split('\\')[-1],
+            'date': app_date,
+            'id_transformed': str(series_code) + '/' + str(app_id)[2:],
+            'number_transformed': app_id,
+            'series_code_transformed_from_type ': series_code,
         }
         return application
 
@@ -291,7 +300,7 @@ def parse_app(case, app_id, filename):
         }
 
     def parse_assignees():
-        assignees_element_list = data_application.findall('assignees/assignee')
+        assignees_element_list = data_grant.findall('assignees/assignee')
         rawassignee_list = []
         for assignee_element in assignees_element_list:
 
@@ -321,7 +330,7 @@ def parse_app(case, app_id, filename):
             rawlocation_list.append(rawlocation)
     
     def parse_inventors():
-        inventors_element_list = data_application.findall('us-parties/inventors/inventor')
+        inventors_element_list = data_grant.findall('us-parties/inventors/inventor')
         rawinventors_list = []
 
         for inventor_element in inventors_element_list:
@@ -348,9 +357,9 @@ def parse_app(case, app_id, filename):
             }
             rawlocation_list.append(rawlocation)
     
-    def parse_applicants():
-        # print_children(data_application.find('us-parties/us-applicants'), 3)
-        applicants_element_list = data_application.findall('us-parties/us-applicants/us-applicant')
+    def parse_grantlicants():
+        # print_children(data_grant.find('us-parties/us-applicants'), 3)
+        applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
         applicants_list = []
         for applicant_element in applicants_element_list:
             loc_idd = id_generator()
@@ -383,12 +392,13 @@ def parse_app(case, app_id, filename):
     start_time = time.time()
 
     application = parse_application()
-    # print(application)
+    print(application)
+    sys.exit()
     parse_claims()
     parse_description()
     parse_assignees()
     parse_inventors()
-    parse_applicants()
+    parse_grantlicants()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
     #     executor.submit(parse_case_files)
@@ -422,8 +432,8 @@ def main_worker(file):
             xml_filename = download_file(file['url'])
         else:
             xml_filename = file_check['filename']
-        if settings.APP_XMLDIR not in xml_filename:
-            xml_filename = os.path.join(settings.APP_XMLDIR, xml_filename)
+        if settings.GRANT_XMLDIR not in xml_filename:
+            xml_filename = os.path.join(settings.GRANT_XMLDIR, xml_filename)
         parse_file(xml_filename, file_check['id'])
     else:
         logger.info('File %s is already inserted into database.', file_check['filename'])
