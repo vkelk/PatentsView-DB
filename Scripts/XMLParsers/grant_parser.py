@@ -826,12 +826,18 @@ def parse_grant(case, app_id, filename):
 
     def parse_rel_app_text():
         description_element = case.find('description')
-        print_children(description_element)
-        pis = description_element.xpath("//processing-instruction()")
-        for pi in pis:
-            print(pi)
-            # etree.strip_tags(pi.getparent(), pi.tag)
-        exit()
+        print_children(description_element, 1)
+        for child in description_element:
+            tag = child.tag
+            print(tag)
+            text = get_text_or_none(child, 'text()')
+            print(text)
+            exit()
+            if tag.startswith('<?RELAPP'):
+                print(tag)
+                text = get_text_or_none(child, 'text()')
+                exit()
+        print_children(description_element, 1)
         rel_app_text = {
             'app_id': app_id,
             'uuid': str(uuid.uuid1()),
