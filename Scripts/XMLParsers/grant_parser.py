@@ -824,6 +824,22 @@ def parse_grant(case, app_id, filename):
             foreign_pri_list.append(foreign_pri)
             sequence += 1
 
+    def parse_rel_app_text():
+        description_element = case.find('description')
+        print_children(description_element)
+        pis = description_element.xpath("//processing-instruction()")
+        for pi in pis:
+            print(pi)
+            # etree.strip_tags(pi.getparent(), pi.tag)
+        exit()
+        rel_app_text = {
+            'app_id': app_id,
+            'uuid': str(uuid.uuid1()),
+            'patent_id': patent_id,
+            'text': None,
+            'sequence': 0
+        }
+
     def parse_description():
         # dbc = Db()
         description_element = case.find('description')
@@ -887,6 +903,7 @@ def parse_grant(case, app_id, filename):
     parse_examiners()
     parse_related_docs()
     parse_foreign_priority()
+    parse_rel_app_text()
     # parse_description()
     # parse_grantlicants()
 
