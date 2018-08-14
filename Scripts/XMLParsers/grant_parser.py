@@ -707,7 +707,7 @@ def parse_grant(case, app_id, filename):
             }
             rawlawyer_list.append(rawlawyer)
             sequence += 1
-    
+
     def parse_examiners():
         primary_ex_el_ls = data_grant.findall('examiners/primary-examiner')
         assist_ex_el_ls = data_grant.findall('examiners/assistant-examiner')
@@ -736,7 +736,7 @@ def parse_grant(case, app_id, filename):
                     'group': get_text_or_none(examiner, 'department/text()')
                 }
                 rawexaminer_list.append(rawexaminer)
-    
+
     def parse_related_docs():
         related_docs = data_grant.find('us-related-documents')
         possible_doc_type = [
@@ -798,7 +798,31 @@ def parse_grant(case, app_id, filename):
                                 }
                                 usreldoc_list.append(usreldoc)
                                 sequence += 1
-            pprint(usreldoc_list)
+
+    def parse_foreign_priority():
+        priority_claim_element_list = data_grant.findall('priority-claims/priority-claim')
+        sequence = 0
+        foreign_pri_list = []
+        for claim in priority_claim_element_list:
+            date = get_text_or_none(claim, 'date/text()')
+            if date[6:] != "00":
+                date = date[:4] + '-' + date[4:6] + '-' + date[6:]
+            else:
+                date = date[:4] + '-' + date[4:6] + '-' + '01'
+
+            foreign_pri = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'sequence': sequence,
+                'kind': claim.attrib['kind'],
+                'number': get_text_or_none(claim, 'doc-number/text()'),
+                'date': date,
+                'country': get_text_or_none(claim, 'country/text()'),
+                'country_transformed': get_text_or_none(claim, 'country/text()')
+            }
+            foreign_pri_list.append(foreign_pri)
+            sequence += 1
 
     def parse_description():
         # dbc = Db()
@@ -850,7 +874,6 @@ def parse_grant(case, app_id, filename):
     start_time = time.time()
 
     application = parse_application()
-    pprint(application)
     patent = parse_patent()
     pprint(patent)
     parse_claims()
@@ -863,6 +886,7 @@ def parse_grant(case, app_id, filename):
     parse_agents()
     parse_examiners()
     parse_related_docs()
+    parse_foreign_priority()
     # parse_description()
     # parse_grantlicants()
 
