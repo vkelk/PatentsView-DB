@@ -311,8 +311,8 @@ def parse_app(case, app_id, filename):
             rawassignee_list.append(rawassignee)
 
             rawlocation = {
-                'id': id_generator(),
-                'location_id': loc_idd,
+                'id': loc_idd,
+                'location_id': None,
                 'city': get_text_or_none(assignee_element, 'addressbook/address/city/text()'),
                 'state': get_text_or_none(assignee_element, 'addressbook/address/state/text()'),
                 'country': get_text_or_none(assignee_element, 'addressbook/address/country/text()'),
