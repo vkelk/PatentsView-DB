@@ -185,7 +185,8 @@ def parse_file(filename, file_id):
             data_grant = case.find('us-bibliographic-data-grant')
             app_ref = data_grant.find('application-reference')
             app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
-            app_id_db = dbc.app_id_get(app_id, file_id)
+            app_id_db = None  # Forcing None to skip db checks
+            # app_id_db = dbc.app_id_get(app_id, file_id)
             if app_id_db is not None:
                 logger.info('APP_id %s do not exists in database and will be inserted', app_id)
                 new_file_date = int(re.sub(r"\D", "", filename))
@@ -250,7 +251,7 @@ def parse_grant(case, app_id, filename):
         rule_47 = 0
 
     def parse_application():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'application_v2'
 
         app_date = get_text_or_none(app_ref, 'document-id/date/text()')
@@ -278,7 +279,7 @@ def parse_grant(case, app_id, filename):
         return application
 
     def parse_patent():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'patent'
 
         pubdate = get_text_or_none(pub_ref, 'document-id/date/text()')
@@ -309,7 +310,7 @@ def parse_grant(case, app_id, filename):
         return patent
 
     def parse_claims():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'claim'
 
         exemplary_claims = []
@@ -341,10 +342,9 @@ def parse_grant(case, app_id, filename):
                 'exemplary': exemplary
             }
             claims_list.append(claim)
-        pprint(claims_list)
 
     def parse_ipcr():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'ipcr'
 
         ipcr_list = []
@@ -383,10 +383,9 @@ def parse_grant(case, app_id, filename):
             }
             ipcr_list.append(ipcr)
             sequence += 1
-        pprint(ipcr_list)
 
     def parse_uspc():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'uspc'
 
         uspc_list = []
@@ -426,11 +425,10 @@ def parse_grant(case, app_id, filename):
                     }
                     uspc_list.append(uspc)
                     sequence += 1
-        pprint(uspc_list)
 
     def parse_citations():
         # in 2021 schema changed to us-references-cited instead of references-cited
-        dbc = Db()
+        # dbc = Db()
 
         citation_element_list = data_grant.findall('references-cited/citation')
         uspatentcitation_list = []
@@ -532,13 +530,8 @@ def parse_grant(case, app_id, filename):
                 otherreference_list.append(otherreference)
                 otherseq += 1
 
-        pprint(uspatentcitation_list)
-        pprint(usappcitation_list)
-        pprint(foreigncitation_list)
-        pprint(otherreference_list)
-
     def parse_assignees():
-        dbc = Db()
+        # dbc = Db()
         table_name = 'rawassignee'
         assignees_element_list = data_grant.findall('assignees/assignee')
         rawassignee_list = []
@@ -583,7 +576,7 @@ def parse_grant(case, app_id, filename):
             rawlocation_list.append(rawlocation)
 
     def parse_non_inventor():
-        dbc = Db()
+        # dbc = Db()
 
         applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
         non_inventor_app_list = []
@@ -642,7 +635,6 @@ def parse_grant(case, app_id, filename):
                 }
                 rawinventor_list.append(rawinventor)
                 inv_seq += 1
-            
             elif earlier_applicant_type and earlier_applicant_type != "applicant-inventor":
                 non_inventor_applicant = {
                     'app_id': app_id,
@@ -658,11 +650,158 @@ def parse_grant(case, app_id, filename):
                 }
                 non_inventor_app_list.append(non_inventor_applicant)
                 sequence += 1
-        pprint(non_inventor_app_list)
-        pprint(rawinventor_list)
+
+    def parse_inventors():
+        # 2005-2013 (inclusive) same of the inventor is only stored in inventor if the inventor is not also the applicant in earlier year
+        # mostly this is because the inventor is dead
+        # so inventors has dead /incapacitated invenntors adn "applicant " has live
+
+        # 2013 on name of the inventor is stored in the inventors block always
+        # split on live or deceased inventor
+        inventors_element_list = data_grant.findall('us-parties/inventors/inventor')
+        sequence = 0
+        for inventor_element in inventors_element_list:
+            loc_idd = str(uuid.uuid1())
+            rawinventor = {
+                    'app_id': app_id,
+                    'uuid': str(uuid.uuid1()),
+                    'patent_id': patent_id,
+                    'inventor_id': None,
+                    'rawlocation_id': loc_idd,
+                    'name_first': get_text_or_none(inventor_element, 'addressbook/first-name/text()'),
+                    'name_last': get_text_or_none(inventor_element, 'addressbook/last-name/text()'),
+                    'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
+                    'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
+                    'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+                    'sequence': sequence,
+                    'rule_47': rule_47
+                }
+            rawinventor_list.append(rawinventor)
+            sequence += 1
+
+            rawlocation = {
+                'id': loc_idd,
+                'location_id': None,
+                'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
+                'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
+                'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+                'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
+            }
+            rawlocation_list.append(rawlocation)
+
+    def parse_agents():
+        agents_element_list = data_grant.findall('us-parties/agents/agent')
+        rawlawyer_list = []
+        sequence = 0
+        for agent_element in agents_element_list:
+            rawlawyer = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'lawyer_id': None,
+                'patent_id': patent_id,
+                'name_first': get_text_or_none(agent_element, 'addressbook/first-name/text()'),
+                'name_last': get_text_or_none(agent_element, 'addressbook/last-name/text()'),
+                'organization': get_text_or_none(agent_element, 'addressbook/orgname/text()'),
+                'country': get_text_or_none(agent_element, 'addressbook/address/country/text()'),
+                'sequence': sequence
+            }
+            rawlawyer_list.append(rawlawyer)
+            sequence += 1
+    
+    def parse_examiners():
+        primary_ex_el_ls = data_grant.findall('examiners/primary-examiner')
+        assist_ex_el_ls = data_grant.findall('examiners/assistant-examiner')
+        rawexaminer_list = []
+        if len(primary_ex_el_ls) > 0:
+            for examiner in primary_ex_el_ls:
+                rawexaminer = {
+                    'app_id': app_id,
+                    'uuid': str(uuid.uuid1()),
+                    'patent_id': patent_id,
+                    'fname': get_text_or_none(examiner, 'first-name/text()'),
+                    'lname': get_text_or_none(examiner, 'last-name/text()'),
+                    'role': "primary",
+                    'group': get_text_or_none(examiner, 'department/text()')
+                }
+                rawexaminer_list.append(rawexaminer)
+        if len(assist_ex_el_ls) > 0:
+            for examiner in primary_ex_el_ls:
+                rawexaminer = {
+                    'app_id': app_id,
+                    'uuid': str(uuid.uuid1()),
+                    'patent_id': patent_id,
+                    'fname': get_text_or_none(examiner, 'first-name/text()'),
+                    'lname': get_text_or_none(examiner, 'last-name/text()'),
+                    'role': "assistant",
+                    'group': get_text_or_none(examiner, 'department/text()')
+                }
+                rawexaminer_list.append(rawexaminer)
+    
+    def parse_related_docs():
+        related_docs = data_grant.find('us-related-documents')
+        possible_doc_type = [
+            'division', 'continuation', 'continuation-in-part', 'continuing-reissue', 'us-divisional-reissue',
+            'reexamination', 'substitution', 'us-provisional-application', 'utility-model-basis', 'reissue',
+            'related-publication', 'correction', 'us-provisional-application', 'us-reexamination-reissue-merger']
+        possible_relations = ['parent-doc', 'parent-grant-document', 'parent-pct-document', 'child-doc']
+        usreldoc_list = []
+        sequence = 0
+        if related_docs is not None:
+            for doc_type in possible_doc_type:
+                doc_type_element = related_docs.find(doc_type)
+                if doc_type_element is not None:
+                    if (doc_type == "us-provisional-application") | (doc_type == "related-publication"):
+                        reldate = get_text_or_none(doc_type_element, 'document-id/date/text()')
+                        if reldate and reldate[6:] != "00":
+                            reldate = reldate[:4] + '-' + reldate[4:6] + '-' + reldate[6:]
+                        else:
+                            reldate = reldate[:4] + '-' + reldate[4:6] + '-' + '01'
+
+                        usreldoc = {
+                            'app_id': app_id,
+                            'uuid': str(uuid.uuid1()),
+                            'patent_id': patent_id,
+                            'doctype': doc_type,
+                            'relkind': None,
+                            'reldocno': get_text_or_none(doc_type_element, 'document-id/doc-number/text()'),
+                            'country': get_text_or_none(doc_type_element, 'document-id/country/text()'),
+                            'date': reldate,
+                            'status': None,
+                            'sequence': sequence,
+                            'kind': get_text_or_none(doc_type_element, 'document-id/kind/text()')
+                        }
+                        usreldoc_list.append(usreldoc)
+                        sequence += 1
+                    else:
+                        for rel_doc in possible_relations:
+                            relation = 'relation/' + rel_doc
+                            rel_doc_element = doc_type_element.find(relation)
+                            if rel_doc_element is not None:
+                                reldate = get_text_or_none(rel_doc_element, 'document-id/date/text()')
+                                if reldate and reldate[6:] != "00":
+                                    reldate = reldate[:4] + '-' + reldate[4:6] + '-' + reldate[6:]
+                                elif reldate:
+                                    reldate = reldate[:4] + '-' + reldate[4:6] + '-' + '01'
+
+                                usreldoc = {
+                                    'app_id': app_id,
+                                    'uuid': str(uuid.uuid1()),
+                                    'patent_id': patent_id,
+                                    'doctype': doc_type,
+                                    'relkind': rel_doc,
+                                    'reldocno': get_text_or_none(rel_doc_element, 'document-id/doc-number/text()'),
+                                    'country': get_text_or_none(rel_doc_element, 'document-id/country/text()'),
+                                    'date': reldate,
+                                    'status': get_text_or_none(rel_doc_element, 'parent-status/text()'),
+                                    'sequence': sequence,
+                                    'kind': get_text_or_none(rel_doc_element, 'document-id/kind/text()')
+                                }
+                                usreldoc_list.append(usreldoc)
+                                sequence += 1
+            pprint(usreldoc_list)
 
     def parse_description():
-        dbc = Db()
+        # dbc = Db()
         description_element = case.find('description')
         description_text_full = etree.tostring(description_element).decode()
         text = re.sub('<.*?>|</.*?>', '', description_text_full)
@@ -674,37 +813,9 @@ def parse_grant(case, app_id, filename):
             'uuid': str(uuid.uuid1()),
             'text': text
         }
-
-
-    def parse_inventors():
-        inventors_element_list = data_grant.findall('us-parties/inventors/inventor')
-        rawinventors_list = []
-
-        for inventor_element in inventors_element_list:
-            loc_idd = str(uuid.uuid1())
-            rawinventor = {
-                'uuid': str(uuid.uuid1()),
-                'application_id': application['id'],
-                'app_id': app_id,
-                'inventor_id': None,
-                'rawlocation_id': loc_idd,
-                'name_first': get_text_or_none(inventor_element, 'addressbook/first-name/text()'),
-                'name_last': get_text_or_none(inventor_element, 'addressbook/last-name/text()'),
-                'sequence': int(inventor_element.attrib['sequence'])
-            }
-            rawinventors_list.append(rawinventor)
-
-            rawlocation = {
-                'id': str(uuid.uuid1()),
-                'location_id': loc_idd,
-                'city': get_text_or_none(inventor_element, 'addressbook/address/city/text()'),
-                'state': get_text_or_none(inventor_element, 'addressbook/address/state/text()'),
-                'country': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
-                'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
-            }
-            rawlocation_list.append(rawlocation)
     
-    def parse_grantlicants():
+    
+    def parse_applicants():
         # print_children(data_grant.find('us-parties/us-applicants'), 3)
         applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
         applicants_list = []
@@ -735,7 +846,7 @@ def parse_grant(case, app_id, filename):
             }
             rawlocation_list.append(rawlocation)
 
-    dbc = Db()
+    # dbc = Db()
     start_time = time.time()
 
     application = parse_application()
@@ -748,9 +859,11 @@ def parse_grant(case, app_id, filename):
     parse_citations()
     parse_assignees()
     parse_non_inventor()
+    parse_inventors()
+    parse_agents()
+    parse_examiners()
+    parse_related_docs()
     # parse_description()
-    # parse_assignees()
-    # parse_inventors()
     # parse_grantlicants()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
