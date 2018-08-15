@@ -929,50 +929,77 @@ def parse_grant(case, app_id, filename):
 
     def parse_pct_data():
         publishing = data_grant.find('pct-or-regional-publishing-data')
-        
-        pct_data = {
-            'app_id': app_id,
-            'uuid': str(uuid.uuid1()),
-            'patent_id': patent_id,
-            'rel_id': None,
-            'date': None,
-            '371_date': None,
-            'country': None,
-            'kind': None,
-            'doc_type': None,
-            '102_date': None
-        }
-
-    def parse_applicants():
-        # print_children(data_grant.find('us-parties/us-applicants'), 3)
-        applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
-        applicants_list = []
-        for applicant_element in applicants_element_list:
-            loc_idd = str(uuid.uuid1())
-            applicant = {
-                'uuid': str(uuid.uuid1()),
-                'application_id': application['id'],
+        filling = data_grant.find('pct-or-regional-filing-data')
+        pct_data_list = []
+        if publishing:
+            date = get_text_or_none(publishing, 'document-id/date/text()')
+            if date[6:] != "00":
+                date = date[:4] + '-' + date[4:6] + '-' + date[6:]
+            else:
+                date = date[:4] + '-' + date[4:6] + '-' + '01'
+            pct_data = {
                 'app_id': app_id,
-                'inventor_id': None,
-                'rawlocation_id': loc_idd,
-                'name_first': get_text_or_none(applicant_element, 'addressbook/first-name/text()'),
-                'name_last': get_text_or_none(applicant_element, 'addressbook/last-name/text()'),
-                'organization': get_text_or_none(applicant_element, 'addressbook/orgname/text()'),
-                'sequence': int(applicant_element.attrib['sequence']),
-                'designation': applicant_element.attrib['designation'],
-                'applicant_type': applicant_element.attrib['app-type'],
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'rel_id': get_text_or_none(publishing, 'document-id/doc-number/text()'),
+                'date': date,
+                '371_date': None,
+                'country': get_text_or_none(publishing, 'document-id/country/text()'),
+                'kind': get_text_or_none(publishing, 'document-id/kind/text()'),
+                'doc_type': "wo_grant",
+                '102_date': None
             }
-            applicants_list.append(applicant)
+            pct_data_list.append(pct_data)
+        if filling:
+            date = get_text_or_none(filling, 'document-id/date/text()')
+            if date[6:] != "00":
+                date = date[:4] + '-' + date[4:6] + '-' + date[6:]
+            else:
+                date = date[:4] + '-' + date[4:6] + '-' + '01'
+            date_371 = get_text_or_none(filling, 'us-371c124-date/date/text()')
+            if date_371:
+                if date_371[6:] != "00":
+                    date_371 = date_371[:4] + '-' + date_371[4:6] + '-' + date_371[6:]
+                else:
+                    date_371 = date_371[:4] + '-' + date_371[4:6] + '-' + '01'
+            else:
+                date_371 = None
+            pct_data = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'rel_id': get_text_or_none(filling, 'document-id/doc-number/text()'),
+                'date': date,
+                '371_date': date_371,
+                'country': get_text_or_none(filling, 'document-id/country/text()'),
+                'kind': get_text_or_none(filling, 'document-id/kind/text()'),
+                'doc_type': "pct_application",
+                '102_date': None
+            }
+            pct_data_list.append(pct_data)
+    
+    def parse_figures():
+        figures_element = data_grant.find('figures')
+        if figures_element:
+            figures = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'num_figures': int(get_text_or_none(figures_element, 'number-of-figures/text()')),
+                'num_sheets': int(get_text_or_none(figures_element, 'number-of-drawing-sheets/text()'))
+            }
 
-            rawlocation = {
-                'id': str(uuid.uuid1()),
-                'location_id': loc_idd,
-                'city': get_text_or_none(applicant_element, 'addressbook/address/city/text()'),
-                'state': get_text_or_none(applicant_element, 'addressbook/address/state/text()'),
-                'country': get_text_or_none(applicant_element, 'addressbook/address/country/text()'),
-                'country_transformed': get_text_or_none(applicant_element, 'addressbook/address/country/text()'),
+    def parse_botanic():
+        botanic_element = data_grant.find('us-botanic')
+        if botanic_element:
+            botanic = {
+                'application_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'app_id': app_id,
+                'latin_name': get_text_or_none(botanic_element, 'latin-name/text()'),
+                'variety': get_text_or_none(botanic_element, 'variety/text()')
             }
-            rawlocation_list.append(rawlocation)
 
     # dbc = Db()
     start_time = time.time()
@@ -996,7 +1023,9 @@ def parse_grant(case, app_id, filename):
     parse_brf_sum_text()
     parse_det_description()
     parse_us_term_of_grant()
-    # parse_grantlicants()
+    parse_pct_data()
+    parse_figures()
+    parse_botanic()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
     #     executor.submit(parse_case_files)
