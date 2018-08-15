@@ -168,26 +168,27 @@ class Db_grants(object):
         xml_filename = zip_filename.replace('zip', 'xml')
         q = "SELECT id, status, filename, date_string FROM file_info WHERE url = %s or filename = %s"
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            self.cur.execute(q, (file['url'], xml_filename))
-            result = self.cur.fetchone()
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(q, (file['url'], xml_filename))
+            result = cur.fetchone()
+            self.cnx.commit()
         except psycopg2.Error as err:
             result = None
             self.logger.error(err)
             self.cnx.rollback()
         finally:
-            self.cur.close()
+            cur.close()
         return result
 
     def file_insert(self, file, xml_filename):
         q = "INSERT INTO file_info (filename, filesize, url, date_string, status) VALUES (%s, %s, %s, %s, %s) RETURNING id"
         try:
             start_time = time.time()
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            self.cur.execute(q, (xml_filename, file['size'], file['url'], file['date_string'], 'new'))
-            last_row = self.cur.fetchone()
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(q, (xml_filename, file['size'], file['url'], file['date_string'], 'new'))
+            last_row = cur.fetchone()
             self.cnx.commit()
-            self.cur.close()
+            cur.close()
             self.logger.debug('Inserted file_info in database [%s sec]', time.time() - start_time)
             return last_row['id']
         except psycopg2.Error as err:
@@ -198,25 +199,26 @@ class Db_grants(object):
     def file_update_status(self, id, status):
         q = "UPDATE file_info SET status = %s, modified = now() WHERE id = %s RETURNING id, status"
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            self.cur.execute(q, (status, id))
-            rowcount = self.cur.rowcount
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(q, (status, id))
+            rowcount = cur.rowcount
             self.cnx.commit()
             self.logger.debug('Updated status for file_info in database')
-            self.cur.close()
+            cur.close()
             return rowcount
         except psycopg2.Error as err:
             self.logger.error(err)
-            self.cur.close()
+            cur.close()
         return None
 
     def patent_id_get(self, patent_id, file_id):
         q = "SELECT pat.id, pat.date, pat.filename, fi.status FROM patent pat \
             JOIN file_info fi ON fi.filename = pat.filename WHERE pat.id = %s"
-        self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        self.cur.execute(q, (patent_id,))
-        result = self.cur.fetchone()
-        self.cur.close()
+        cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(q, (patent_id,))
+        result = cur.fetchone()
+        self.cnx.commit()
+        cur.close()
         return result
 
     def case_file_update_status(self, serial_number, status):
@@ -225,16 +227,16 @@ class Db_grants(object):
             return None
         q = "UPDATE trademark_app_case_files SET status = %s, modified = now() WHERE serial_number = %s RETURNING id"
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            self.cur.execute(q, (status, serial_number))
-            rowcount = self.cur.rowcount
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(q, (status, serial_number))
+            rowcount = cur.rowcount
             self.cnx.commit()
-            self.cur.close()
+            cur.close()
             self.logger.debug('Updated status for case_files in database')
             return rowcount
         except psycopg2.Error as err:
             self.logger.error(err)
-            self.cur.close()
+            cur.close()
         return None
 
     def delete_patent(self, patent_id, table):
@@ -247,18 +249,18 @@ class Db_grants(object):
             q = 'DELETE FROM %s WHERE patent_id = %s'
         start_time = time.time()
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            q = self.cur.mogrify(q, (AsIs(table), patent_id))
-            self.cur.execute(q)
-            rowcount = self.cur.rowcount
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            q = cur.mogrify(q, (AsIs(table), patent_id))
+            cur.execute(q)
+            rowcount = cur.rowcount
             self.cnx.commit()
             self.logger.debug('Deleted %s rows from table %s for patent_id %s [%s sec]', rowcount, table, patent_id, time.time() - start_time)
-            self.cur.close()
+            cur.close()
             return rowcount
         except psycopg2.Error as err:
             self.logger.error(err)
             self.cnx.rollback()
-            self.cur.close()
+            cur.close()
         return None
 
     def insert_listdict(self, lst, table_name):
@@ -272,19 +274,19 @@ class Db_grants(object):
         start_time = time.time()
         q = 'INSERT INTO {0} ({1}) values %s'.format(table_name, columns)
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            execute_values(self.cur, q, values)
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            execute_values(cur, q, values)
             rowcount = self.cur.rowcount
-            # self.cur.execute(q)
+            # cur.execute(q)
             self.cnx.commit()
-            self.cur.close()
+            cur.close()
             self.logger.debug('Inserted %s rows in table %s [%s sec]', rowcount, table_name, time.time() - start_time)
             return rowcount
         except psycopg2.Error as err:
             self.logger.error('Insert failed for table_name %s', table_name)
             self.logger.error(err)
             self.cnx.rollback()
-            self.cur.close()
+            cur.close()
         return None
 
     def insert_dict(self, d, table_name):
@@ -297,15 +299,15 @@ class Db_grants(object):
         start_time = time.time()
         q = 'INSERT INTO {0} ({1}) values ({2})'.format(table_name, columns, values)
         try:
-            self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            q = self.cur.mogrify(q, d)
-            self.cur.execute(q)
+            cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            q = cur.mogrify(q, d)
+            cur.execute(q)
             self.cnx.commit()
-            self.cur.close()
+            cur.close()
             self.logger.debug('Inserted row in table %s [%s sec]', table_name, time.time() - start_time)
         except psycopg2.Error as err:
             self.logger.error('Insert failed for table_name %s', table_name)
             self.logger.error(err)
             self.cnx.rollback()
-            self.cur.close()
+            cur.close()
         return None

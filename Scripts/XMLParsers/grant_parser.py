@@ -1,5 +1,6 @@
 import argparse
 import concurrent.futures as cf
+from itertools import repeat
 import logging
 import logging.config
 import os
@@ -180,7 +181,7 @@ def parse_file(filename, file_id):
         file_start_time = time.time()
         logger.info('Parsing file %s' % filename)
         context = etree.iterparse(inputfile, events=('end',), tag='us-patent-grant')
-        app_counter = 0
+        pat_counter = 1
         for event, case in context:
             data_grant = case.find('us-bibliographic-data-grant')
             pub_ref = data_grant.find('publication-reference')
@@ -198,6 +199,7 @@ def parse_file(filename, file_id):
             else:
                 docno = num
             patent_id = docno
+            print(pat_counter, '[{}:{}]'.format(filename.split('\\')[-1], patent_id))
             patent_id_db = dbc.patent_id_get(patent_id, file_id)
             if patent_id_db is not None:
                 logger.warning('Patent_id %s exists in the database', patent_id)
@@ -206,28 +208,26 @@ def parse_file(filename, file_id):
                 # print(new_file_date, db_file_date)
                 # exit()
                 if new_file_date > db_file_date \
-                        or patent_id_db['status'] == 'new' \
-                        or (new_file_date >= db_file_date and args.parseall and args.force):
-                    for t in ('claim', 'ipcr', 'uspc', 'uspatentcitation', 'wipo', 'government_interest',
-                              'usapplicationcitation', 'foreigncitation', 'otherreference', 'rawassignee',
-                              'non_inventor_applicant', 'rawinventor', 'rawlawyer', 'rawexaminer', 'usreldoc',
-                              'foreign_priority', 'draw_desc_text', 'rel_app_text', 'brf_sum_text', 'detail_desc_text',
-                              'us_term_of_grant', 'pct_data', 'figures', 'botanic', 'application', 'patent'):
-                        dbc.delete_patent(patent_id, t)
+                    or (patent_id_db['status'] == 'new' and args.force) \
+                    or (new_file_date >= db_file_date and args.parseall and args.force):
+                    table_names = [
+                        'claim', 'ipcr', 'uspc', 'uspatentcitation', 'wipo', 'government_interest',
+                        'usapplicationcitation', 'foreigncitation', 'otherreference', 'rawassignee',
+                        'non_inventor_applicant', 'rawinventor', 'rawlawyer', 'rawexaminer', 'usreldoc',
+                        'foreign_priority', 'draw_desc_text', 'rel_app_text', 'brf_sum_text', 'detail_desc_text',
+                        'us_term_of_grant', 'pct_data', 'figures', 'botanic', 'application', 'patent'
+                    ]
                     logger.warning('Deleting existing patent with id %s', patent_id)
+                    # for t in table_names:
+                    #     dbc.delete_patent(patent_id, t)
+                    with cf.ThreadPoolExecutor(max_workers=len(table_names)) as executor:
+                        executor.map(dbc.delete_patent, repeat(patent_id), table_names)
                     parse_grant(case, filename, dbc)
             else:
                 logger.info('Processing new Patent_id %s', patent_id)
                 parse_grant(case, filename, dbc)
-            app_counter += 1
+            pat_counter += 1
             case.clear()
-            print(app_counter)
-            if app_counter == 800:
-                # global mainclassdata
-                # global subclassdata
-                # pprint(mainclassdata)
-                # pprint(subclassdata)
-                sys.exit()
     dbc.file_update_status(file_id, 'finished')
     # os.remove(filename)
     logger.info('Finished parsing file %s in [%s sec]', filename, time.time() - file_start_time)
@@ -255,7 +255,7 @@ def parse_grant(case, filename, dbc):
         docno = num
     patent_id = docno
     app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
-    rawinventor_list = []
+    # rawinventor_list = []
     mainclass_list = []
     subclass_list = []
     rule_47_flag = data_grant.find('rule-47-flag')
@@ -357,7 +357,7 @@ def parse_grant(case, filename, dbc):
             claim = {
                 'uuid': str(uuid.uuid1()),
                 'patent_id': patent_id,
-                'app_id': application['app_id'],
+                'app_id': app_id,
                 'text': text,
                 'dependent': dependent,
                 'sequence': int(sequence),
@@ -605,6 +605,7 @@ def parse_grant(case, filename, dbc):
     def parse_non_inventor():
         applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
         non_inventor_app_list = []
+        rawinventor_list = []
         sequence = 0
         inv_seq = 0
         for applicant_element in applicants_element_list:
@@ -686,6 +687,7 @@ def parse_grant(case, filename, dbc):
         # 2013 on name of the inventor is stored in the inventors block always
         # split on live or deceased inventor
         inventors_element_list = data_grant.findall('us-parties/inventors/inventor')
+        rawinventor_list = []
         sequence = 0
         for inventor_element in inventors_element_list:
             loc_idd = str(uuid.uuid1())
@@ -1057,42 +1059,51 @@ def parse_grant(case, filename, dbc):
     # dbc = Db()
     start_time = time.time()
 
-    application = parse_application()
     patent = parse_patent()
-    parse_claims()
-    parse_ipcr()
-    parse_uspc()
-    parse_citations()
-    parse_assignees()
-    parse_non_inventor()
-    parse_inventors()
-    parse_agents()
-    parse_examiners()
-    parse_related_docs()
-    parse_foreign_priority()
-    parse_draw_desc_text()
-    parse_rel_app_text()
-    parse_brf_sum_text()
-    parse_det_description()
-    parse_us_term_of_grant()
-    parse_pct_data()
-    parse_figures()
-    parse_botanic()
-    parse_goverment_interest()
+    # parse_application()
+    # parse_claims()
+    # parse_ipcr()
+    # parse_uspc()
+    # parse_citations()
+    # parse_assignees()
+    # parse_non_inventor()
+    # parse_inventors()
+    # parse_agents()
+    # parse_examiners()
+    # parse_related_docs()
+    # parse_foreign_priority()
+    # parse_draw_desc_text()
+    # parse_rel_app_text()
+    # parse_brf_sum_text()
+    # parse_det_description()
+    # parse_us_term_of_grant()
+    # parse_pct_data()
+    # parse_figures()
+    # parse_botanic()
+    # parse_goverment_interest()
 
-    # with cf.ThreadPoolExecutor(max_workers=12) as executor:
-    #     executor.submit(parse_case_files)
-    #     executor.submit(parse_headers)
-    #     executor.submit(parse_statements)
-    #     executor.submit(parse_event_statements)
-    #     executor.submit(parse_prior_registration_applications)
-    #     executor.submit(parse_foreign_applications)
-    #     executor.submit(parse_classifications)
-    #     executor.submit(parse_correspondents)
-    #     executor.submit(parse_owners)
-    #     executor.submit(parse_design_searches)
-    #     executor.submit(parse_international_registration)
-    #     executor.submit(parse_madrid_international_filing_record)
+    with cf.ThreadPoolExecutor(max_workers=21) as executor:
+        executor.submit(parse_application)
+        executor.submit(parse_claims)
+        executor.submit(parse_ipcr)
+        executor.submit(parse_uspc)
+        executor.submit(parse_citations)
+        executor.submit(parse_assignees)
+        executor.submit(parse_non_inventor)
+        executor.submit(parse_inventors)
+        executor.submit(parse_agents)
+        executor.submit(parse_examiners)
+        executor.submit(parse_related_docs)
+        executor.submit(parse_foreign_priority)
+        executor.submit(parse_draw_desc_text)
+        executor.submit(parse_rel_app_text)
+        executor.submit(parse_brf_sum_text)
+        executor.submit(parse_det_description)
+        executor.submit(parse_us_term_of_grant)
+        executor.submit(parse_pct_data)
+        executor.submit(parse_figures)
+        executor.submit(parse_botanic)
+        executor.submit(parse_goverment_interest)
 
     # dbc.case_file_update_status(doc_id, 'true')
     logger.info('Inserted application %s in [%s sec]', app_id, time.time() - start_time)
