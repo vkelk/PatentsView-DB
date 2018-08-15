@@ -237,19 +237,19 @@ class Db_grants(object):
             self.cur.close()
         return None
 
-    def delete_serial(self, serial_number, table):
-        if serial_number is None or table is None:
-            logging.error('DELETE ERROR: Missing serial_number or table')
+    def delete_patent(self, patent_id, table):
+        if patent_id is None or table is None:
+            logging.error('DELETE ERROR: Missing patent_id or table')
             return None
-        q = 'DELETE FROM %s WHERE serial_number = %s'
+        q = 'DELETE FROM %s WHERE patent_id = %s'
         start_time = time.time()
         try:
             self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            q = self.cur.mogrify(q, (AsIs(table), serial_number))
+            q = self.cur.mogrify(q, (AsIs(table), patent_id))
             self.cur.execute(q)
             rowcount = self.cur.rowcount
             self.cnx.commit()
-            self.logger.warning('Deleted serial_number %s from table %s [%s sec]', serial_number, table, time.time() - start_time)
+            self.logger.warning('Deleted patent_id %s from table %s [%s sec]', patent_id, table, time.time() - start_time)
             self.cur.close()
             return rowcount
         except psycopg2.Error as err:

@@ -199,28 +199,21 @@ def parse_file(filename, file_id):
                 docno = num
             patent_id = docno
             patent_id_db = dbc.patent_id_get(patent_id, file_id)
-            print(patent_id_db)
-            exit()
             if patent_id_db is not None:
-                logger.info('APP_id %s do not exists in database and will be inserted', app_id)
+                logger.warning('Patent_id %s exists in the database', patent_id)
                 new_file_date = int(re.sub(r"\D", "", filename))
                 db_file_date = int(re.sub(r"\D", "", patent_id_db['filename']))
-                print(new_file_date, db_file_date)
+                # print(new_file_date, db_file_date)
+                # exit()
                 if new_file_date > db_file_date \
-                        or patent_id_db['status'] is False \
+                        or patent_id_db['status'] == 'new' \
                         or (new_file_date >= db_file_date and args.parseall and args.force):
-                    for t in ('trademark_app_case_files', 'trademark_app_case_file_event_statements',
-                              'trademark_app_case_file_headers', 'trademark_app_case_file_owners',
-                              'trademark_app_case_file_statements', 'trademark_app_classifications',
-                              'trademark_app_correspondents', 'trademark_app_design_searches',
-                              'trademark_app_foreign_applications', 'trademark_app_international_registration',
-                              'trademark_app_madrid_history_events', 'trademark_app_madrid_international_filing_record',
-                              'trademark_app_prior_registration_applications', 'trademark_app_us_codes'):
-                        dbc.delete_serial(app_id, t)
-                    logger.info('Processing existing serial number %s', app_id)
-                    parse_case(case, app_id, file_id)
+                    for t in ('patent', 'application'):
+                        dbc.delete_patent(patent_id, t)
+                    logger.warning('Deleting existing patent with id %s', patent_id)
+                    parse_grant(case, filename, dbc)
             else:
-                logger.info('Processing new app_id %s', app_id)
+                logger.info('Processing new Patent_id %s', patent_id)
                 parse_grant(case, filename, dbc)
             app_counter += 1
             case.clear()
@@ -1085,7 +1078,7 @@ def main_worker(file):
     if file_check is None:
         xml_filename = download_file(file['url'])
         if xml_filename is not None:
-            inserted_id = dbc.file_insert(file, xml_filename)
+            inserted_id = dbc.file_insert(file, xml_filename.split('\\')[-1])
             parse_file(xml_filename, inserted_id)
     elif file_check['status'] in ['new', ''] or file_check['status'] is None:
         logger.warning('File %s exists into database. Going to process again', file_check['filename'])
