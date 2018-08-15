@@ -977,7 +977,7 @@ def parse_grant(case, app_id, filename):
                 '102_date': None
             }
             pct_data_list.append(pct_data)
-    
+
     def parse_figures():
         figures_element = data_grant.find('figures')
         if figures_element:
@@ -999,6 +999,21 @@ def parse_grant(case, app_id, filename):
                 'app_id': app_id,
                 'latin_name': get_text_or_none(botanic_element, 'latin-name/text()'),
                 'variety': get_text_or_none(botanic_element, 'variety/text()')
+            }
+    
+    def parse_goverment_interest():
+        description_element = case.find('description')
+        description_text_full = etree.tostring(description_element).decode()
+        gov_int_containers = description_text_full.split("<?GOVINT")
+        if len(gov_int_containers) > 1:
+            gov_int_text_full = "<?GOVINT" + gov_int_containers[1]
+            text = re.sub('<.*?>|</.*?>', '', gov_int_text_full)
+            text = re.sub('[\n\t\r\f]+', ' ', text)
+            text = re.sub('\s+', ' ', text)
+            goverment_interest = {
+                'app_id': app_id,
+                'patent_id': patent_id,
+                'text': text.strip(),
             }
 
     # dbc = Db()
@@ -1026,6 +1041,7 @@ def parse_grant(case, app_id, filename):
     parse_pct_data()
     parse_figures()
     parse_botanic()
+    parse_goverment_interest()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
     #     executor.submit(parse_case_files)
