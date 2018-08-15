@@ -210,7 +210,8 @@ def parse_file(filename, file_id):
                 parse_grant(case, app_id, filename)
             app_counter += 1
             case.clear()
-            if app_counter == 751:
+            print(app_counter)
+            if app_counter == 800:
                 # global mainclassdata
                 # global subclassdata
                 # pprint(mainclassdata)
@@ -234,6 +235,8 @@ def parse_grant(case, app_id, filename):
     if num[0].startswith("0"):
         num = num[1:]
         let = re.findall('[a-zA-Z]+', docno)
+    else:
+        let = None
     if let:
         let = let[0]  # list to string
         docno = let + num
@@ -460,7 +463,7 @@ def parse_grant(case, app_id, filename):
             else:  # basically if there is anything other than number and digits
                 citdocno = citdocno
                 app_flag = True
-            
+
             citdate = get_text_or_none(citation_element, 'patcit/document-id/date/text()')
             if citdate:
                 if citdate[6:] != "00":
@@ -468,7 +471,7 @@ def parse_grant(case, app_id, filename):
                 else:
                     citdate = citdate[:4] + '-' + citdate[4:6] + '-' + '01'
                     year = citdate[:4]
-            
+
             text = get_text_or_none(citation_element, 'nplcit/othercit/text()')
 
             if citcountry == "US":
@@ -616,7 +619,7 @@ def parse_grant(case, app_id, filename):
                 }
                 non_inventor_app_list.append(non_inventor_applicant)
                 sequence += 1
- 
+
             # this gets us the inventors from 2005-2012
             if earlier_applicant_type and earlier_applicant_type == "applicant-inventor":
                 rawinventor = {
@@ -824,43 +827,122 @@ def parse_grant(case, app_id, filename):
             foreign_pri_list.append(foreign_pri)
             sequence += 1
 
+    def parse_draw_desc_text():
+        draw_desc_list = []
+        sequence = 0
+        draw_des_element_list = case.findall('description/description-of-drawings/p')
+        for draw_desc_element in draw_des_element_list:
+            draw_desc_text_full = etree.tostring(draw_desc_element).decode()
+            text = re.sub('<.*?>|</.*?>', '', draw_desc_text_full)
+            draw_desc_text = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'text': text,
+                'sequence': int(draw_desc_element.attrib['num'])
+            }
+            draw_desc_list.append(draw_desc_text)
+            sequence += 1
+
     def parse_rel_app_text():
         description_element = case.find('description')
-        print_children(description_element, 1)
-        for child in description_element:
-            tag = child.tag
-            print(tag)
-            text = get_text_or_none(child, 'text()')
-            print(text)
-            exit()
-            if tag.startswith('<?RELAPP'):
-                print(tag)
-                text = get_text_or_none(child, 'text()')
-                exit()
-        print_children(description_element, 1)
-        rel_app_text = {
-            'app_id': app_id,
-            'uuid': str(uuid.uuid1()),
-            'patent_id': patent_id,
-            'text': None,
-            'sequence': 0
-        }
+        description_text_full = etree.tostring(description_element).decode()
+        rel_app_text_list = []
+        rel_app_containers = description_text_full.split("<?RELAPP")
+        if len(rel_app_containers) > 1:
+            rel_app = rel_app_containers[1].split("\n")
+            rel_app_seq = 0
+            text_field = ""
+            for line in rel_app:
+                if line.startswith("<heading"):
+                    heading = re.search(">(.*?)<", line).group(1)
+                    text_field += heading + " "
+                    rel_app_text = {
+                        'app_id': app_id,
+                        'uuid': str(uuid.uuid1()),
+                        'patent_id': patent_id,
+                        'text': text_field,
+                        'sequence': rel_app_seq
+                    }
+                    rel_app_text_list.append(rel_app_text)
+                    rel_app_seq += 1
+                if line.startswith("<p"):
+                    text = re.search(">(.*?)</p>", line).group(1)
+                    text_field += text + " "
+                    rel_app_text = {
+                        'app_id': app_id,
+                        'uuid': str(uuid.uuid1()),
+                        'patent_id': patent_id,
+                        'text': text_field,
+                        'sequence': rel_app_seq
+                    }
+                    rel_app_text_list.append(rel_app_text)
+                    rel_app_seq += 1
 
-    def parse_description():
+    def parse_brf_sum_text():
+        description_element = case.find('description')
+        description_text_full = etree.tostring(description_element).decode()
+        brf_sum_containers = description_text_full.split("<?BRFSUM")
+        if len(brf_sum_containers) > 1:
+            brf_sum_text_full = "<?BRFSUM" + brf_sum_containers[1]
+            text = re.sub('<.*?>|</.*?>', '', brf_sum_text_full)
+            text = re.sub('[\n\t\r\f]+', ' ', text)
+            text = re.sub('\s+', ' ', text)
+            brf_sum_text = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'text': text
+            }
+
+    def parse_det_description():
         # dbc = Db()
         description_element = case.find('description')
         description_text_full = etree.tostring(description_element).decode()
-        text = re.sub('<.*?>|</.*?>', '', description_text_full)
-        text = re.sub('[\n\t\r\f]+', ' ', text)
-        text = re.sub('^\d+\.\s+', '', text)
-        text = re.sub('\s+', ' ', text)
-        description = {
+        det_desc_containers = description_text_full.split("<?DETDESC")
+        if len(det_desc_containers) > 1:
+            det_desc_text_full = "<?DETDESC" + det_desc_containers[1]
+            text = re.sub('<.*?>|</.*?>', '', det_desc_text_full)
+            text = re.sub('[\n\t\r\f]+', ' ', text)
+            text = re.sub('\s+', ' ', text)
+            detail_desc_text = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'text': text,
+                'sequence': 0
+            }
+
+    def parse_us_term_of_grant():
+        us_term_of_grant_element = data_grant.find('us-term-of-grant')
+        if us_term_of_grant_element:
+            us_term_of_grant = {
+                'app_id': app_id,
+                'uuid': str(uuid.uuid1()),
+                'patent_id': patent_id,
+                'lapse_of_patent': get_text_or_none(us_term_of_grant_element, 'lapse-of-patent/text()'),
+                'disclaimer_date': None,
+                'term_disclaimer': get_text_or_none(us_term_of_grant_element, 'text/text()'),
+                'term_grant': get_text_or_none(us_term_of_grant_element, 'length-of-grant/text()'),
+                'term_extensions': get_text_or_none(us_term_of_grant_element, 'us-term-extension/text()')
+            }
+
+    def parse_pct_data():
+        publishing = data_grant.find('pct-or-regional-publishing-data')
+        
+        pct_data = {
             'app_id': app_id,
             'uuid': str(uuid.uuid1()),
-            'text': text
+            'patent_id': patent_id,
+            'rel_id': None,
+            'date': None,
+            '371_date': None,
+            'country': None,
+            'kind': None,
+            'doc_type': None,
+            '102_date': None
         }
-    
-    
+
     def parse_applicants():
         # print_children(data_grant.find('us-parties/us-applicants'), 3)
         applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
@@ -909,8 +991,11 @@ def parse_grant(case, app_id, filename):
     parse_examiners()
     parse_related_docs()
     parse_foreign_priority()
+    parse_draw_desc_text()
     parse_rel_app_text()
-    # parse_description()
+    parse_brf_sum_text()
+    parse_det_description()
+    parse_us_term_of_grant()
     # parse_grantlicants()
 
     # with cf.ThreadPoolExecutor(max_workers=12) as executor:
