@@ -183,17 +183,31 @@ def parse_file(filename, file_id):
         app_counter = 0
         for event, case in context:
             data_grant = case.find('us-bibliographic-data-grant')
-            app_ref = data_grant.find('application-reference')
-            app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
-            app_id_db = None  # Forcing None to skip db checks
-            # app_id_db = dbc.app_id_get(app_id, file_id)
-            if app_id_db is not None:
+            pub_ref = data_grant.find('publication-reference')
+            docno = get_text_or_none(pub_ref, 'document-id/doc-number/text()')
+            num = re.findall('\d+', docno)
+            num = num[0]  # turns it from list to string
+            if num[0].startswith("0"):
+                num = num[1:]
+                let = re.findall('[a-zA-Z]+', docno)
+            else:
+                let = None
+            if let:
+                let = let[0]  # list to string
+                docno = let + num
+            else:
+                docno = num
+            patent_id = docno
+            patent_id_db = dbc.patent_id_get(patent_id, file_id)
+            print(patent_id_db)
+            exit()
+            if patent_id_db is not None:
                 logger.info('APP_id %s do not exists in database and will be inserted', app_id)
                 new_file_date = int(re.sub(r"\D", "", filename))
-                db_file_date = int(re.sub(r"\D", "", app_id_db['filename']))
+                db_file_date = int(re.sub(r"\D", "", patent_id_db['filename']))
                 print(new_file_date, db_file_date)
                 if new_file_date > db_file_date \
-                        or app_id_db['status'] is False \
+                        or patent_id_db['status'] is False \
                         or (new_file_date >= db_file_date and args.parseall and args.force):
                     for t in ('trademark_app_case_files', 'trademark_app_case_file_event_statements',
                               'trademark_app_case_file_headers', 'trademark_app_case_file_owners',
@@ -207,7 +221,7 @@ def parse_file(filename, file_id):
                     parse_case(case, app_id, file_id)
             else:
                 logger.info('Processing new app_id %s', app_id)
-                parse_grant(case, app_id, filename)
+                parse_grant(case, filename, dbc)
             app_counter += 1
             case.clear()
             print(app_counter)
@@ -217,12 +231,12 @@ def parse_file(filename, file_id):
                 # pprint(mainclassdata)
                 # pprint(subclassdata)
                 sys.exit()
-    # dbc.file_update_status(file_id, 'finished')
+    dbc.file_update_status(file_id, 'finished')
     # os.remove(filename)
     logger.info('Finished parsing file %s in [%s sec]', filename, time.time() - file_start_time)
 
 
-def parse_grant(case, app_id, filename):
+def parse_grant(case, filename, dbc):
     global rawlocation
     global mainclassdata
     global subclassdata
@@ -243,6 +257,7 @@ def parse_grant(case, app_id, filename):
     else:
         docno = num
     patent_id = docno
+    app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
     rawlocation_list = []
     rawinventor_list = []
     mainclass_list = []
@@ -254,9 +269,6 @@ def parse_grant(case, app_id, filename):
         rule_47 = 0
 
     def parse_application():
-        # dbc = Db()
-        table_name = 'application_v2'
-
         app_date = get_text_or_none(app_ref, 'document-id/date/text()')
         if app_date[6:] != "00":
             app_date = app_date[:4] + '-' + app_date[4:6] + '-' + app_date[6:]
@@ -279,12 +291,13 @@ def parse_grant(case, app_id, filename):
             'number_transformed': app_id,
             'series_code_transformed_from_type ': series_code,
         }
+        try:
+            dbc.insert_dict(application, 'application')
+        except Exception:
+            raise
         return application
 
     def parse_patent():
-        # dbc = Db()
-        table_name = 'patent'
-
         pubdate = get_text_or_none(pub_ref, 'document-id/date/text()')
         if pubdate[6:] != "00":
             pubdate = pubdate[:4] + '-' + pubdate[4:6] + '-' + pubdate[6:]
@@ -307,9 +320,14 @@ def parse_grant(case, app_id, filename):
             'abstract': abstract,
             'title': get_text_or_none(data_grant, 'invention-title/text()'),
             'kind': get_text_or_none(pub_ref, 'document-id/kind/text()'),
+            'color_status': 0,
             'num_claims': int(get_text_or_none(data_grant, 'number-of-claims/text()')),
             'filename': filename.split('\\')[-1]
         }
+        try:
+            dbc.insert_dict(patent, 'patent')
+        except Exception:
+            raise
         return patent
 
     def parse_claims():
