@@ -208,7 +208,11 @@ def parse_file(filename, file_id):
                 if new_file_date > db_file_date \
                         or patent_id_db['status'] == 'new' \
                         or (new_file_date >= db_file_date and args.parseall and args.force):
-                    for t in ('patent', 'application'):
+                    for t in ('claim', 'ipcr', 'uspc', 'uspatentcitation', 'wipo', 'government_interest',
+                              'usapplicationcitation', 'foreigncitation', 'otherreference', 'rawassignee',
+                              'non_inventor_applicant', 'rawinventor', 'rawlawyer', 'rawexaminer', 'usreldoc',
+                              'foreign_priority', 'draw_desc_text', 'rel_app_text', 'brf_sum_text', 'detail_desc_text',
+                              'us_term_of_grant', 'pct_data', 'figures', 'botanic', 'application', 'patent'):
                         dbc.delete_patent(patent_id, t)
                     logger.warning('Deleting existing patent with id %s', patent_id)
                     parse_grant(case, filename, dbc)
@@ -230,7 +234,7 @@ def parse_file(filename, file_id):
 
 
 def parse_grant(case, filename, dbc):
-    global rawlocation
+    global rawlocation_list
     global mainclassdata
     global subclassdata
     data_grant = case.find('us-bibliographic-data-grant')
@@ -251,7 +255,6 @@ def parse_grant(case, filename, dbc):
         docno = num
     patent_id = docno
     app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
-    rawlocation_list = []
     rawinventor_list = []
     mainclass_list = []
     subclass_list = []
@@ -319,14 +322,19 @@ def parse_grant(case, filename, dbc):
         }
         try:
             dbc.insert_dict(patent, 'patent')
+            if patent['type'] == 'plant':
+                wipo = {
+                    'app_id': app_id,
+                    'patent_id': patent_id,
+                    'field_id': 36,
+                    'sequence': 0
+                }
+                dbc.insert_dict(wipo, 'wipo')
         except Exception:
             raise
         return patent
 
     def parse_claims():
-        # dbc = Db()
-        table_name = 'claim'
-
         exemplary_claims = []
         exemplary_claims_element_list = data_grant.findall('us-exemplary-claim')
         for exeplary_claim in exemplary_claims_element_list:
@@ -356,11 +364,9 @@ def parse_grant(case, filename, dbc):
                 'exemplary': exemplary
             }
             claims_list.append(claim)
+        dbc.insert_listdict(claims_list, 'claim')
 
     def parse_ipcr():
-        # dbc = Db()
-        table_name = 'ipcr'
-
         ipcr_list = []
         ipcr_element_list = data_grant.findall('classifications-ipcr/classification-ipcr')
         sequence = 0
@@ -397,11 +403,9 @@ def parse_grant(case, filename, dbc):
             }
             ipcr_list.append(ipcr)
             sequence += 1
+        dbc.insert_listdict(ipcr_list, 'ipcr')
 
     def parse_uspc():
-        # dbc = Db()
-        table_name = 'uspc'
-
         uspc_list = []
         uspc_element_list = data_grant.findall('classification-national')
         sequence = 0
@@ -434,16 +438,23 @@ def parse_grant(case, filename, dbc):
                         'uuid': str(uuid.uuid1()),
                         'patent_id': patent_id,
                         'mainclass_id': further_class,
-                        'sublcass_id': further_class + '/' + further_sub_class,
+                        'subclass_id': further_class + '/' + further_sub_class,
                         'sequence': sequence
                     }
                     uspc_list.append(uspc)
+                    if sequence == 0 and further_class.startswith('D') and patent['type'] == 'design':
+                        wipo = {
+                            'app_id': app_id,
+                            'patent_id': patent_id,
+                            'field_id': further_class,
+                            'sequence': 0
+                        }
+                        dbc.insert_dict(wipo, 'wipo')
                     sequence += 1
+        dbc.insert_listdict(uspc_list, 'uspc')
 
     def parse_citations():
         # in 2021 schema changed to us-references-cited instead of references-cited
-        # dbc = Db()
-
         citation_element_list = data_grant.findall('references-cited/citation')
         uspatentcitation_list = []
         usappcitation_list = []
@@ -543,15 +554,16 @@ def parse_grant(case, filename, dbc):
                 }
                 otherreference_list.append(otherreference)
                 otherseq += 1
+        dbc.insert_listdict(uspatentcitation_list, 'uspatentcitation')
+        dbc.insert_listdict(usappcitation_list, 'usapplicationcitation')
+        dbc.insert_listdict(foreigncitation_list, 'foreigncitation')
+        dbc.insert_listdict(otherreference_list, 'otherreference')
 
     def parse_assignees():
-        # dbc = Db()
-        table_name = 'rawassignee'
         assignees_element_list = data_grant.findall('assignees/assignee')
         rawassignee_list = []
         sequence = 0
         for assignee_element in assignees_element_list:
-
             loc_idd = str(uuid.uuid1())
             role = get_text_or_none(assignee_element, 'addressbook/role/text()')
             role_type = None
@@ -588,10 +600,9 @@ def parse_grant(case, filename, dbc):
                 'country_transformed': get_text_or_none(assignee_element, 'addressbook/address/country/text()'),
             }
             rawlocation_list.append(rawlocation)
+        dbc.insert_listdict(rawassignee_list, 'rawassignee')
 
     def parse_non_inventor():
-        # dbc = Db()
-
         applicants_element_list = data_grant.findall('us-parties/us-applicants/us-applicant')
         non_inventor_app_list = []
         sequence = 0
@@ -664,6 +675,8 @@ def parse_grant(case, filename, dbc):
                 }
                 non_inventor_app_list.append(non_inventor_applicant)
                 sequence += 1
+        dbc.insert_listdict(non_inventor_app_list, 'non_inventor_applicant')
+        dbc.insert_listdict(rawinventor_list, 'rawinventor')
 
     def parse_inventors():
         # 2005-2013 (inclusive) same of the inventor is only stored in inventor if the inventor is not also the applicant in earlier year
@@ -702,6 +715,7 @@ def parse_grant(case, filename, dbc):
                 'country_transformed': get_text_or_none(inventor_element, 'addressbook/address/country/text()'),
             }
             rawlocation_list.append(rawlocation)
+        dbc.insert_listdict(rawinventor_list, 'rawinventor')
 
     def parse_agents():
         agents_element_list = data_grant.findall('us-parties/agents/agent')
@@ -721,6 +735,7 @@ def parse_grant(case, filename, dbc):
             }
             rawlawyer_list.append(rawlawyer)
             sequence += 1
+        dbc.insert_listdict(rawlawyer_list, 'rawlawyer')
 
     def parse_examiners():
         primary_ex_el_ls = data_grant.findall('examiners/primary-examiner')
@@ -730,26 +745,27 @@ def parse_grant(case, filename, dbc):
             for examiner in primary_ex_el_ls:
                 rawexaminer = {
                     'app_id': app_id,
-                    'uuid': str(uuid.uuid1()),
+                    'id': str(uuid.uuid1()),
                     'patent_id': patent_id,
                     'fname': get_text_or_none(examiner, 'first-name/text()'),
                     'lname': get_text_or_none(examiner, 'last-name/text()'),
                     'role': "primary",
-                    'group': get_text_or_none(examiner, 'department/text()')
+                    '"group"': get_text_or_none(examiner, 'department/text()')
                 }
                 rawexaminer_list.append(rawexaminer)
         if len(assist_ex_el_ls) > 0:
             for examiner in primary_ex_el_ls:
                 rawexaminer = {
                     'app_id': app_id,
-                    'uuid': str(uuid.uuid1()),
+                    'id': str(uuid.uuid1()),
                     'patent_id': patent_id,
                     'fname': get_text_or_none(examiner, 'first-name/text()'),
                     'lname': get_text_or_none(examiner, 'last-name/text()'),
                     'role': "assistant",
-                    'group': get_text_or_none(examiner, 'department/text()')
+                    '"group"': get_text_or_none(examiner, 'department/text()')
                 }
                 rawexaminer_list.append(rawexaminer)
+        dbc.insert_listdict(rawexaminer_list, 'rawexaminer')
 
     def parse_related_docs():
         related_docs = data_grant.find('us-related-documents')
@@ -812,6 +828,7 @@ def parse_grant(case, filename, dbc):
                                 }
                                 usreldoc_list.append(usreldoc)
                                 sequence += 1
+            dbc.insert_listdict(usreldoc_list, 'usreldoc')
 
     def parse_foreign_priority():
         priority_claim_element_list = data_grant.findall('priority-claims/priority-claim')
@@ -837,6 +854,7 @@ def parse_grant(case, filename, dbc):
             }
             foreign_pri_list.append(foreign_pri)
             sequence += 1
+        dbc.insert_listdict(foreign_pri_list, 'foreign_priority')
 
     def parse_draw_desc_text():
         draw_desc_list = []
@@ -854,6 +872,7 @@ def parse_grant(case, filename, dbc):
             }
             draw_desc_list.append(draw_desc_text)
             sequence += 1
+        dbc.insert_listdict(draw_desc_list, 'draw_desc_text')
 
     def parse_rel_app_text():
         description_element = case.find('description')
@@ -889,6 +908,7 @@ def parse_grant(case, filename, dbc):
                     }
                     rel_app_text_list.append(rel_app_text)
                     rel_app_seq += 1
+            dbc.insert_dict(rel_app_text, 'rel_app_text')
 
     def parse_brf_sum_text():
         description_element = case.find('description')
@@ -905,6 +925,7 @@ def parse_grant(case, filename, dbc):
                 'patent_id': patent_id,
                 'text': text
             }
+            dbc.insert_dict(brf_sum_text, 'brf_sum_text')
 
     def parse_det_description():
         # dbc = Db()
@@ -923,10 +944,11 @@ def parse_grant(case, filename, dbc):
                 'text': text,
                 'sequence': 0
             }
+            dbc.insert_dict(detail_desc_text, 'detail_desc_text')
 
     def parse_us_term_of_grant():
         us_term_of_grant_element = data_grant.find('us-term-of-grant')
-        if us_term_of_grant_element:
+        if us_term_of_grant_element is not None:
             us_term_of_grant = {
                 'app_id': app_id,
                 'uuid': str(uuid.uuid1()),
@@ -935,8 +957,9 @@ def parse_grant(case, filename, dbc):
                 'disclaimer_date': None,
                 'term_disclaimer': get_text_or_none(us_term_of_grant_element, 'text/text()'),
                 'term_grant': get_text_or_none(us_term_of_grant_element, 'length-of-grant/text()'),
-                'term_extensions': get_text_or_none(us_term_of_grant_element, 'us-term-extension/text()')
+                'term_extension': get_text_or_none(us_term_of_grant_element, 'us-term-extension/text()')
             }
+            dbc.insert_dict(us_term_of_grant, 'us_term_of_grant')
 
     def parse_pct_data():
         publishing = data_grant.find('pct-or-regional-publishing-data')
@@ -988,10 +1011,11 @@ def parse_grant(case, filename, dbc):
                 '102_date': None
             }
             pct_data_list.append(pct_data)
+        dbc.insert_listdict(pct_data_list, 'pct_data')
 
     def parse_figures():
         figures_element = data_grant.find('figures')
-        if figures_element:
+        if figures_element is not None:
             figures = {
                 'app_id': app_id,
                 'uuid': str(uuid.uuid1()),
@@ -999,10 +1023,11 @@ def parse_grant(case, filename, dbc):
                 'num_figures': int(get_text_or_none(figures_element, 'number-of-figures/text()')),
                 'num_sheets': int(get_text_or_none(figures_element, 'number-of-drawing-sheets/text()'))
             }
+            dbc.insert_dict(figures, 'figures')
 
     def parse_botanic():
         botanic_element = data_grant.find('us-botanic')
-        if botanic_element:
+        if botanic_element is not None:
             botanic = {
                 'application_id': app_id,
                 'uuid': str(uuid.uuid1()),
@@ -1011,7 +1036,8 @@ def parse_grant(case, filename, dbc):
                 'latin_name': get_text_or_none(botanic_element, 'latin-name/text()'),
                 'variety': get_text_or_none(botanic_element, 'variety/text()')
             }
-    
+            dbc.insert_dict(botanic, 'botanic')
+
     def parse_goverment_interest():
         description_element = case.find('description')
         description_text_full = etree.tostring(description_element).decode()
@@ -1024,15 +1050,15 @@ def parse_grant(case, filename, dbc):
             goverment_interest = {
                 'app_id': app_id,
                 'patent_id': patent_id,
-                'text': text.strip(),
+                'gi_statement': text.strip(),
             }
+            dbc.insert_dict(goverment_interest, 'government_interest')
 
     # dbc = Db()
     start_time = time.time()
 
     application = parse_application()
     patent = parse_patent()
-    pprint(patent)
     parse_claims()
     parse_ipcr()
     parse_uspc()
@@ -1108,7 +1134,7 @@ if __name__ == '__main__':
         logger = create_logger()
         files_tuple = get_urls(MAIN_URL)
         # Make the following variables global
-        rawlocation = {}
+        rawlocation_list = []
         mainclassdata = {}
         subclassdata = {}
         # single-thread test

@@ -241,7 +241,10 @@ class Db_grants(object):
         if patent_id is None or table is None:
             logging.error('DELETE ERROR: Missing patent_id or table')
             return None
-        q = 'DELETE FROM %s WHERE patent_id = %s'
+        if table in ['patent']:
+            q = 'DELETE FROM %s WHERE id = %s'
+        else:
+            q = 'DELETE FROM %s WHERE patent_id = %s'
         start_time = time.time()
         try:
             self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -249,7 +252,7 @@ class Db_grants(object):
             self.cur.execute(q)
             rowcount = self.cur.rowcount
             self.cnx.commit()
-            self.logger.warning('Deleted patent_id %s from table %s [%s sec]', patent_id, table, time.time() - start_time)
+            self.logger.debug('Deleted %s rows from table %s for patent_id %s [%s sec]', rowcount, table, patent_id, time.time() - start_time)
             self.cur.close()
             return rowcount
         except psycopg2.Error as err:
@@ -267,7 +270,7 @@ class Db_grants(object):
         for d in lst:
             values.append(list(d.values()))
         start_time = time.time()
-        q = 'INSERT INTO {0} ({1}) values %s RETURNING id'.format(table_name, columns)
+        q = 'INSERT INTO {0} ({1}) values %s'.format(table_name, columns)
         try:
             self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             execute_values(self.cur, q, values)
@@ -278,6 +281,7 @@ class Db_grants(object):
             self.logger.debug('Inserted %s rows in table %s [%s sec]', rowcount, table_name, time.time() - start_time)
             return rowcount
         except psycopg2.Error as err:
+            self.logger.error('Insert failed for table_name %s', table_name)
             self.logger.error(err)
             self.cnx.rollback()
             self.cur.close()
@@ -291,17 +295,16 @@ class Db_grants(object):
         columns = ', '.join(keys)
         values = ', '.join(['%({})s'.format(k) for k in keys])
         start_time = time.time()
-        q = 'INSERT INTO {0} ({1}) values ({2}) RETURNING id'.format(table_name, columns, values)
+        q = 'INSERT INTO {0} ({1}) values ({2})'.format(table_name, columns, values)
         try:
             self.cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             q = self.cur.mogrify(q, d)
             self.cur.execute(q)
             self.cnx.commit()
-            last_row = self.cur.fetchone()
             self.cur.close()
-            self.logger.debug('Inserted id [%s] in table %s [%s sec]', last_row['id'], table_name, time.time() - start_time)
-            return last_row['id']
+            self.logger.debug('Inserted row in table %s [%s sec]', table_name, time.time() - start_time)
         except psycopg2.Error as err:
+            self.logger.error('Insert failed for table_name %s', table_name)
             self.logger.error(err)
             self.cnx.rollback()
             self.cur.close()
