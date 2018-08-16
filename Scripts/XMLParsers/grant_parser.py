@@ -229,7 +229,7 @@ def parse_file(filename, file_id):
             pat_counter += 1
             case.clear()
     dbc.file_update_status(file_id, 'finished')
-    # os.remove(filename)
+    os.remove(filename)
     logger.info('Finished parsing file %s in [%s sec]', filename, time.time() - file_start_time)
 
 
@@ -259,7 +259,7 @@ def parse_grant(case, filename, dbc):
     mainclass_list = []
     subclass_list = []
     rule_47_flag = data_grant.find('rule-47-flag')
-    if rule_47_flag:
+    if rule_47_flag is not None:
         rule_47 = 1
     else:
         rule_47 = 0
@@ -490,9 +490,10 @@ def parse_grant(case, filename, dbc):
             if citdate:
                 if citdate[6:] != "00":
                     citdate = citdate[:4] + '-' + citdate[4:6] + '-' + citdate[6:]
-                else:
+                elif citdate[4:6] !="00":
                     citdate = citdate[:4] + '-' + citdate[4:6] + '-' + '01'
-                    year = citdate[:4]
+                else:
+                    citdate = citdate[:4] + '-' + '01' + '-' + '01'
 
             text = get_text_or_none(citation_element, 'nplcit/othercit/text()')
 
@@ -967,7 +968,7 @@ def parse_grant(case, filename, dbc):
         publishing = data_grant.find('pct-or-regional-publishing-data')
         filling = data_grant.find('pct-or-regional-filing-data')
         pct_data_list = []
-        if publishing:
+        if publishing is not None:
             date = get_text_or_none(publishing, 'document-id/date/text()')
             if date[6:] != "00":
                 date = date[:4] + '-' + date[4:6] + '-' + date[6:]
@@ -979,14 +980,14 @@ def parse_grant(case, filename, dbc):
                 'patent_id': patent_id,
                 'rel_id': get_text_or_none(publishing, 'document-id/doc-number/text()'),
                 'date': date,
-                '371_date': None,
+                '"371_date"': None,
                 'country': get_text_or_none(publishing, 'document-id/country/text()'),
                 'kind': get_text_or_none(publishing, 'document-id/kind/text()'),
                 'doc_type': "wo_grant",
-                '102_date': None
+                '"102_date"': None
             }
             pct_data_list.append(pct_data)
-        if filling:
+        if filling is not None:
             date = get_text_or_none(filling, 'document-id/date/text()')
             if date[6:] != "00":
                 date = date[:4] + '-' + date[4:6] + '-' + date[6:]
@@ -1006,11 +1007,11 @@ def parse_grant(case, filename, dbc):
                 'patent_id': patent_id,
                 'rel_id': get_text_or_none(filling, 'document-id/doc-number/text()'),
                 'date': date,
-                '371_date': date_371,
+                '"371_date"': date_371,
                 'country': get_text_or_none(filling, 'document-id/country/text()'),
                 'kind': get_text_or_none(filling, 'document-id/kind/text()'),
                 'doc_type': "pct_application",
-                '102_date': None
+                '"102_date"': None
             }
             pct_data_list.append(pct_data)
         dbc.insert_listdict(pct_data_list, 'pct_data')
@@ -1117,8 +1118,8 @@ def main_worker(file):
         if xml_filename is not None:
             inserted_id = dbc.file_insert(file, xml_filename.split('\\')[-1])
             parse_file(xml_filename, inserted_id)
-    elif file_check['status'] in ['new', ''] or file_check['status'] is None:
-        logger.warning('File %s exists into database. Going to process again', file_check['filename'])
+    elif file_check['status'] is None or file_check['status'] in ['new', '']:
+        logger.warning('File %s is not copletly into the database. Going to process again', file_check['filename'])
         if not os.path.isfile(os.path.join(WORK_DIR, file_check['filename'])):
             xml_filename = download_file(file['url'])
         else:
@@ -1133,6 +1134,9 @@ def main_worker(file):
             sys.exit()
 
 
+logger = create_logger()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Downloads, parses and inserts to database patent applications.')
     parser.add_argument('--parse', help='Parses most recent data.', action="store_true")
@@ -1142,17 +1146,16 @@ if __name__ == '__main__':
     if args.parse or args.parseall:
         os.makedirs(os.path.dirname(WORK_DIR), exist_ok=True)
         os.makedirs(os.path.dirname(LOG_DIR), exist_ok=True)
-        logger = create_logger()
         files_tuple = get_urls(MAIN_URL)
         # Make the following variables global
         rawlocation_list = []
         mainclassdata = {}
         subclassdata = {}
         # single-thread test
-        for file in files_tuple:
-            main_worker(file)
-        sys.exit()
-        with cf.ThreadPoolExecutor(max_workers=4) as executor:
+        # for file in files_tuple:
+        #     main_worker(file)
+        # sys.exit()
+        with cf.ProcessPoolExecutor(max_workers=4) as executor:
             executor.map(main_worker, files_tuple)
     else:
         parser.print_help()
