@@ -151,7 +151,7 @@ def download_file(url):
         except Exception:
             logger.error('UNZIP ERROR. Deleting file %s' % zip_filename)
             os.remove(zip_filename)
-    return xml_filename.split('/')[-1]
+    return os.path.basename(xml_filename)
 
 
 def get_urls(main_url):
@@ -199,7 +199,7 @@ def parse_file(filename, file_id):
             else:
                 docno = num
             patent_id = docno
-            print(pat_counter, '[{}:{}]'.format(filename.split('\\')[-1], patent_id))
+            print(pat_counter, '[{}:{}]'.format(os.path.basename(filename), patent_id))
             patent_id_db = dbc.patent_id_get(patent_id, file_id)
             if patent_id_db is not None:
                 logger.warning('Patent_id %s exists in the database', patent_id)
@@ -318,7 +318,7 @@ def parse_grant(case, filename, dbc):
             'kind': get_text_or_none(pub_ref, 'document-id/kind/text()'),
             'color_status': 0,
             'num_claims': int(get_text_or_none(data_grant, 'number-of-claims/text()')),
-            'filename': filename.split('\\')[-1]
+            'filename': os.path.basename(filename)
         }
         try:
             dbc.insert_dict(patent, 'patent')
@@ -1105,6 +1105,7 @@ def parse_grant(case, filename, dbc):
         executor.submit(parse_figures)
         executor.submit(parse_botanic)
         executor.submit(parse_goverment_interest)
+    dbc.cnx.commit()
 
     # dbc.case_file_update_status(doc_id, 'true')
     logger.info('Inserted application %s in [%s sec]', app_id, time.time() - start_time)
@@ -1116,9 +1117,9 @@ def main_worker(file):
     if file_check is None:
         xml_filename = download_file(file['url'])
         if xml_filename is not None:
-            inserted_id = dbc.file_insert(file, xml_filename.split('\\')[-1])
+            inserted_id = dbc.file_insert(file, os.path.basename(xml_filename))
             parse_file(xml_filename, inserted_id)
-    elif file_check['status'] is None or file_check['status'] in ['new', '']:
+    elif args.parseall or file_check['status'] is None or file_check['status'] in ['new', '']:
         logger.warning('File %s is not copletly into the database. Going to process again', file_check['filename'])
         if not os.path.isfile(os.path.join(WORK_DIR, file_check['filename'])):
             xml_filename = download_file(file['url'])
@@ -1152,10 +1153,10 @@ if __name__ == '__main__':
         mainclassdata = {}
         subclassdata = {}
         # single-thread test
-        # for file in files_tuple:
-        #     main_worker(file)
-        # sys.exit()
-        with cf.ProcessPoolExecutor(max_workers=4) as executor:
+        for file in files_tuple:
+            main_worker(file)
+        sys.exit()
+        with cf.ThreadPoolExecutor(max_workers=2) as executor:
             executor.map(main_worker, files_tuple)
     else:
         parser.print_help()

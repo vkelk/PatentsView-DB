@@ -29,6 +29,7 @@ class Db_applications(object):
 
     def file_check(self, file):
         zip_filename = file['url'].split('/')[-1]
+        os.path.basename(filename)
         xml_filename = zip_filename.replace('zip', 'xml')
         q = "SELECT id, status, filename, date_string FROM file_info WHERE url = %s or filename = %s"
         self.cur.execute(q, (file['url'], xml_filename))
@@ -213,7 +214,7 @@ class Db_grants(object):
 
     def patent_id_get(self, patent_id, file_id):
         q = "SELECT pat.id, pat.date, pat.filename, fi.status FROM patent pat \
-            JOIN file_info fi ON fi.filename = pat.filename WHERE pat.id = %s"
+            FULL JOIN file_info fi ON fi.filename = pat.filename WHERE pat.id = %s"
         cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(q, (patent_id,))
         result = cur.fetchone()
@@ -278,7 +279,7 @@ class Db_grants(object):
             execute_values(cur, q, values)
             rowcount = self.cur.rowcount
             # cur.execute(q)
-            self.cnx.commit()
+            # self.cnx.commit()
             cur.close()
             self.logger.debug('Inserted %s rows in table %s [%s sec]', rowcount, table_name, time.time() - start_time)
             return rowcount
@@ -302,7 +303,7 @@ class Db_grants(object):
             cur = self.cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             q = cur.mogrify(q, d)
             cur.execute(q)
-            self.cnx.commit()
+            # self.cnx.commit()
             cur.close()
             self.logger.debug('Inserted row in table %s [%s sec]', table_name, time.time() - start_time)
         except psycopg2.Error as err:
