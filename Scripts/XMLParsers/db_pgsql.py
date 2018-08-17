@@ -254,7 +254,7 @@ class Db_grants(object):
             q = cur.mogrify(q, (AsIs(table), patent_id))
             cur.execute(q)
             rowcount = cur.rowcount
-            self.cnx.commit()
+            # self.cnx.commit()
             self.logger.debug('Deleted %s rows from table %s for patent_id %s [%s sec]', rowcount, table, patent_id, time.time() - start_time)
             cur.close()
             return rowcount

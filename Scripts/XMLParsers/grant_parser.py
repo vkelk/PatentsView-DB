@@ -222,6 +222,7 @@ def parse_file(filename, file_id):
                     #     dbc.delete_patent(patent_id, t)
                     with cf.ThreadPoolExecutor(max_workers=len(table_names)) as executor:
                         executor.map(dbc.delete_patent, repeat(patent_id), table_names)
+                    dbc.cnx.commit()
                     parse_grant(case, filename, dbc)
             else:
                 logger.info('Processing new Patent_id %s', patent_id)
