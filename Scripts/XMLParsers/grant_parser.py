@@ -21,6 +21,7 @@ import settings
 
 WORK_DIR = settings.GRANT_XMLDIR
 LOG_DIR = 'logs/'
+MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2017/'
 MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2018/'
 
 
