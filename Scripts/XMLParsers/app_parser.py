@@ -197,7 +197,7 @@ def parse_file(filename, file_id):
             app_id = int(get_text_or_none(app_ref, 'document-id/doc-number/text()'))
             app_id_db = dbc.app_id_get(app_id, file_id)
             if app_id_db is not None:
-                logger.info('APP_id %s do not exists in database and will be inserted', app_id)
+                logger.info('APP_id %s exists in database', app_id)
                 new_file_date = int(re.sub(r"\D", "", filename))
                 db_file_date = int(re.sub(r"\D", "", app_id_db['filename']))
                 if new_file_date > db_file_date \

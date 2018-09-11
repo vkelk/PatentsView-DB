@@ -25,7 +25,7 @@ MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2017/'
 MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2018/'
 
 
-def create_logger(log_file_name):
+def create_logger():
     date = time.strftime('%Y-%m-%d')
     log_file_name = LOG_DIR + 'grant_parser_' + str(date) + '.log'
     logging.config.fileConfig('log.ini', defaults={'logfilename': log_file_name})
