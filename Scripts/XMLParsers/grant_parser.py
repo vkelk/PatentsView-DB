@@ -25,15 +25,11 @@ MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2017/'
 MAIN_URL = 'https://bulkdata.uspto.gov/data/patent/grant/redbook/fulltext/2018/'
 
 
-def create_logger():
+def create_logger(log_file_name):
     date = time.strftime('%Y-%m-%d')
-    log_file = LOG_DIR + 'grant_parser_' + str(date) + '.log'
-    logging.config.fileConfig('log.ini', defaults={'logfilename': log_file})
+    log_file_name = LOG_DIR + 'grant_parser_' + str(date) + '.log'
+    logging.config.fileConfig('log.ini', defaults={'logfilename': log_file_name})
     return logging.getLogger(__name__)
-
-
-def id_generator(size=25, chars=string.ascii_lowercase + string.digits):
-        return ''.join(random.choice(chars) for _ in range(size))
 
 
 def download_html(url):
@@ -59,6 +55,10 @@ def download_html(url):
             return html_content.decode()
         else:
             return html_content
+
+
+def id_generator(size=25, chars=string.ascii_lowercase + string.digits):
+        return ''.join(random.choice(chars) for _ in range(size))
 
 
 def get_text_or_none(element, item_name):
@@ -100,8 +100,8 @@ def clean_file(raw_file):
     :return  null, creates list of files
     '''
     logger.info('Cleaning XML file')
-    if settings.GRANT_XMLDIR not in raw_file:
-            raw_file = os.path.join(settings.GRANT_XMLDIR, raw_file)
+    if WORK_DIR not in raw_file:
+            raw_file = os.path.join(WORK_DIR, raw_file)
     new_file = raw_file[:-4] + '_clean.xml'
     file_already_cleaned = False
     try:
@@ -177,7 +177,7 @@ def get_urls(main_url):
 def parse_file(filename, file_id):
     dbc = Db()
     if WORK_DIR not in filename:
-        filename = os.path.join(settings.GRANT_XMLDIR, filename)
+        filename = os.path.join(WORK_DIR, filename)
     with open(filename, 'rb') as inputfile:
         file_start_time = time.time()
         logger.info('Parsing file %s' % filename)
@@ -1127,8 +1127,8 @@ def main_worker(file):
             xml_filename = download_file(file['url'])
         else:
             xml_filename = file_check['filename']
-        if settings.GRANT_XMLDIR not in xml_filename:
-            xml_filename = os.path.join(settings.GRANT_XMLDIR, xml_filename)
+        if WORK_DIR not in xml_filename:
+            xml_filename = os.path.join(WORK_DIR, xml_filename)
         parse_file(xml_filename, file_check['id'])
     else:
         logger.info('File %s is already inserted into database.', file_check['filename'])
