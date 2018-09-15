@@ -261,7 +261,7 @@ def parse_app(case, filename, dbc):
             'title': get_text_or_none(case, 'us-bibliographic-data-application/invention-title/text()'),
             'granted': None,
             'num_claims': len(claims_element_list),
-            'filename': filename.split('\\')[-1],
+            'filename': os.path.basename(filename),
         }
         try:
             dbc.insert_dict(application, 'application')
